@@ -26,10 +26,10 @@ export async function dbDelete(col, id) {
 }
 
 // ── API client (server mode) ──────────────────────────────────
-async function apiFetch(path, opts = {}) {
+async function apiFetch(path, { headers: extraHeaders, ...rest } = {}) {
   const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json', ...opts.headers },
-    ...opts,
+    headers: { 'Content-Type': 'application/json', ...extraHeaders },
+    ...rest,
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))

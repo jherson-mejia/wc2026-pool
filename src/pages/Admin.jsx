@@ -334,7 +334,7 @@ function ParticipantCard({ p, allPicks, myPicks, results, koMatches, user, onDel
               </button>
             </div>
           )}
-          <div className="text-xs text-[#807D73] mt-0.5">{p.email} · {pickCount} picks · {correct} correct · {exact} exact</div>
+          <div className="text-xs text-[#807D73] mt-0.5">{p.email} · {pickCount} picks · {correct} right · {exact} exact</div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">

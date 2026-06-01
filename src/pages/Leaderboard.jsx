@@ -37,7 +37,7 @@ function PodiumCard({ p, rank, isMe }) {
           {isMe && <span className="ml-1 text-[#FFD706]">·you</span>}
         </div>
         <div className="text-[10px] text-[#807D73] mt-0.5">
-          {p.correct}c · {p.exact}e
+          {p.correct} right · {p.exact} exact
         </div>
       </div>
     </div>
@@ -149,7 +149,7 @@ export default function Leaderboard() {
                 <span className="text-[10px] text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 px-1.5 py-0.5 rounded-full leading-none shrink-0">you</span>
               </div>
               <div className="text-xs text-[#807D73]">
-                {myEntry.correct} correct · {myEntry.exact} exact
+                {myEntry.correct} right · {myEntry.exact} exact
                 {ranked[myRankIdx - 1] && (
                   <span className="ml-2">
                     · <span className="text-[#FF8200] font-semibold">
@@ -190,7 +190,7 @@ export default function Leaderboard() {
                         <span className="text-[10px] text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 px-1.5 py-0.5 rounded-full leading-none">you</span>
                       )}
                     </div>
-                    <div className="text-xs text-[#807D73] mt-0.5">{p.correct} correct · {p.exact} exact</div>
+                    <div className="text-xs text-[#807D73] mt-0.5">{p.correct} right · {p.exact} exact</div>
                   </div>
                   <div className="text-lg font-extrabold text-[#FFFDF2] tabular-nums shrink-0">{p.pts}</div>
                 </div>
@@ -220,7 +220,7 @@ export default function Leaderboard() {
                       {p.name}
                       {isMe && <span className="text-[10px] text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 px-1.5 py-0.5 rounded-full leading-none">you</span>}
                     </div>
-                    <div className="text-xs text-[#807D73] mt-0.5">{p.correct} correct · {p.exact} exact</div>
+                    <div className="text-xs text-[#807D73] mt-0.5">{p.correct} right · {p.exact} exact</div>
                   </div>
                   <div className="text-lg font-extrabold text-[#FFFDF2] tabular-nums">{p.pts}</div>
                 </div>
@@ -253,7 +253,7 @@ export default function Leaderboard() {
                 <span className="text-[11px] font-bold text-[#FFFDF2]">{pts}</span>
               </div>
             ))}
-            <span className="shrink-0 text-[11px] text-[#807D73] pl-1 whitespace-nowrap">result / exact</span>
+            <span className="shrink-0 text-[11px] text-[#807D73] pl-1 whitespace-nowrap">right / exact</span>
           </div>
         </section>
       )}

@@ -74,7 +74,7 @@ export default function HowItWorks() {
             <div className="rounded-lg border border-[#32312D] overflow-hidden">
               <div className="grid grid-cols-3 text-[10px] font-bold text-[#807D73] uppercase tracking-wider px-3 py-2 bg-[#32312D]/40">
                 <span>Round</span>
-                <span className="text-center">Correct result</span>
+                <span className="text-center">Right result</span>
                 <span className="text-center text-[#FFD706]">Exact score</span>
               </div>
               {SCORING.map(({ stage, result, exact }) => (

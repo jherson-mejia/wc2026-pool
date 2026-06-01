@@ -201,12 +201,12 @@ function PicksProgress({ myPicks, results, participants, allPicks, user }) {
         <div className="rounded-lg bg-[#0D0D0B]/60 border border-[#32312D] p-2.5 text-center">
           <CheckCircle2 className="h-3 w-3 text-[#807D73] mx-auto mb-1" />
           <div className="text-xl font-extrabold text-[#FFFDF2] tabular-nums leading-none">{correct}</div>
-          <div className="text-[9px] text-[#807D73] uppercase tracking-wider mt-1">Correct</div>
+          <div className="text-[9px] text-[#807D73] uppercase tracking-wider mt-1">Right result</div>
         </div>
         <div className="rounded-lg bg-[#0D0D0B]/60 border border-[#32312D] p-2.5 text-center">
           <Zap className="h-3 w-3 text-[#807D73] mx-auto mb-1" />
           <div className="text-xl font-extrabold text-[#FFFDF2] tabular-nums leading-none">{exact}</div>
-          <div className="text-[9px] text-[#807D73] uppercase tracking-wider mt-1">Exact</div>
+          <div className="text-[9px] text-[#807D73] uppercase tracking-wider mt-1">Exact score</div>
         </div>
       </div>
 
@@ -311,7 +311,7 @@ export default function Picks() {
 
         <TabsContent value="group">
           <div className="text-xs text-[#807D73] bg-[#32312D]/30 rounded-lg px-3 py-2 mb-4">
-            📊 Group Stage: <span className="text-[#FFFDF2] font-semibold">1pt</span> correct result · <span className="text-[#FFD706] font-semibold">3pts</span> exact score
+            📊 Group Stage: <span className="text-[#FFFDF2] font-semibold">1pt</span> right result · <span className="text-[#FFD706] font-semibold">3pts</span> exact score
           </div>
           <div className="space-y-2">
             {GROUPS.map(g => (
