@@ -129,7 +129,10 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
           ? (w === 'HOME_TEAM' ? 'home' : w === 'AWAY_TEAM' ? 'away' : null)
           : null
 
-        toUpsert.push({ match_id: matchId, home: h, away: a, winner, ts: Date.now() })
+        const hp = m.score?.penalties?.home ?? null
+        const ap = m.score?.penalties?.away ?? null
+
+        toUpsert.push({ match_id: matchId, home: h, away: a, winner, home_pens: hp, away_pens: ap, ts: Date.now() })
       }
 
       if (toUpsert.length === 0) {

@@ -76,7 +76,7 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
         </div>
         <div className="shrink-0 ml-2">
           {result
-            ? <Badge variant="success">✓ {result.home}–{result.away}</Badge>
+            ? <Badge variant="success">✓ {result.home}–{result.away}{result.homePens != null ? ` · pens ${result.homePens}–${result.awayPens}` : ''}</Badge>
             : kickoffLocked
               ? <Badge variant="locked">🔒 Locked</Badge>
               : hasPick
@@ -127,6 +127,13 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
           <div className="text-[10px] font-bold text-[#FFFDF2] leading-tight px-1 truncate">{km.away}</div>
         </div>
       </div>
+
+      {/* Penalties display */}
+      {result?.homePens != null && (
+        <div className="text-center text-[10px] text-[#807D73] mt-1">
+          Penalties: <span className="font-semibold text-[#FFFDF2]">{result.homePens}–{result.awayPens}</span>
+        </div>
+      )}
 
       {/* Winner selector */}
       {!locked && (

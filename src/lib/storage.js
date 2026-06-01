@@ -79,9 +79,9 @@ export async function apiSavePick(email, matchId, home, away, winner) {
 }
 
 // ── Results ───────────────────────────────────────────────────
-export async function apiSaveResult(matchId, home, away, winner) {
+export async function apiSaveResult(matchId, home, away, winner, homePens = null, awayPens = null) {
   return apiFetch(`/api/results/${encodeURIComponent(matchId)}`, {
-    method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ home, away, winner }),
+    method: 'PUT', headers: adminHeaders(), body: JSON.stringify({ home, away, winner, home_pens: homePens, away_pens: awayPens }),
   })
 }
 

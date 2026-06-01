@@ -72,7 +72,7 @@ async function broadcastTable(table) {
 }
 
 // ── Row shape converters ──────────────────────────────────────
-const rowToResult = r => ({ matchId: r.match_id, home: r.home, away: r.away, winner: r.winner, ts: r.ts })
+const rowToResult = r => ({ matchId: r.match_id, home: r.home, away: r.away, winner: r.winner, homePens: r.home_pens ?? null, awayPens: r.away_pens ?? null, ts: r.ts })
 const rowToKo     = r => ({ matchId: r.match_id, home: r.home, away: r.away, ts: r.ts })
 const rowToPick   = r => ({ matchId: r.match_id, email: r.email, home: r.home, away: r.away, winner: r.winner, ts: r.ts })
 
@@ -213,8 +213,8 @@ app.get('/api/results', async (_req, res) => {
 })
 
 app.put('/api/results/:matchId', adminOnly, async (req, res) => {
-  const { home, away, winner } = req.body ?? {}
-  const row = { match_id: req.params.matchId, home, away, winner: winner ?? null, ts: Date.now() }
+  const { home, away, winner, home_pens, away_pens } = req.body ?? {}
+  const row = { match_id: req.params.matchId, home, away, winner: winner ?? null, home_pens: home_pens ?? null, away_pens: away_pens ?? null, ts: Date.now() }
   const { error } = await supabase.from('results').upsert(row, { onConflict: 'match_id' })
   if (error) return res.status(500).json({ error: error.message })
   broadcastTable('results')

@@ -132,10 +132,10 @@ export function AppProvider({ children }) {
     await apiSavePick(state.user.email, matchId, home, away, winner)
   }
 
-  async function saveResult(matchId, home, away, winner = null) {
-    const result = { matchId, home, away, winner, ts: Date.now() }
+  async function saveResult(matchId, home, away, winner = null, homePens = null, awayPens = null) {
+    const result = { matchId, home, away, winner, homePens, awayPens, ts: Date.now() }
     dispatch({ type: 'PATCH_RESULT', matchId, result })
-    await apiSaveResult(matchId, home, away, winner)
+    await apiSaveResult(matchId, home, away, winner, homePens, awayPens)
   }
 
   async function clearResult(matchId) {

@@ -31,6 +31,8 @@ function ResultsTab() {
   const set = (mid, side, val) => setFormVals(p => ({ ...p, [mid]: { ...(p[mid] || {}), [side]: val } }))
   const getW = (mid) => formVals[mid]?.winner ?? results[mid]?.winner ?? ''
   const setW = (mid, v) => setFormVals(p => ({ ...p, [mid]: { ...(p[mid] || {}), winner: v } }))
+  const getPens = (mid, side) => formVals[mid]?.[side + '_pens'] ?? (results[mid]?.[side === 'home' ? 'homePens' : 'awayPens'] ?? '')
+  const setPens = (mid, side, val) => setFormVals(p => ({ ...p, [mid]: { ...(p[mid] || {}), [side + '_pens']: val } }))
 
   async function submit(matchId, isKO = false) {
     const h = parseInt(get(matchId, 'home'))
@@ -38,7 +40,11 @@ function ResultsTab() {
     if (isNaN(h) || isNaN(a)) { toast({ title: 'Enter both scores', variant: 'destructive' }); return }
     if (isKO && !getW(matchId)) { toast({ title: 'Select the winner', variant: 'destructive' }); return }
     try {
-      await saveResult(matchId, h, a, isKO ? getW(matchId) : null)
+      const hp = getPens(matchId, 'home')
+      const ap = getPens(matchId, 'away')
+      const homePens = hp !== '' ? parseInt(hp) : null
+      const awayPens = ap !== '' ? parseInt(ap) : null
+      await saveResult(matchId, h, a, isKO ? getW(matchId) : null, isKO ? homePens : null, isKO ? awayPens : null)
       toast({ title: 'Result saved ✓' })
     } catch { toast({ title: 'Failed to save', variant: 'destructive' }) }
   }
@@ -137,6 +143,16 @@ function ResultsTab() {
                     <SelectItem value="away">{km.away}</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Label className="text-xs text-[#807D73]">Penalty shootout (optional):</Label>
+                <div className="flex items-center gap-2">
+                  <Input type="number" min="0" max="99" className="w-14 text-center px-1"
+                    value={getPens(mid, 'home')} onChange={e => setPens(mid, 'home', e.target.value)} placeholder="–" />
+                  <span className="text-[#807D73] font-bold">–</span>
+                  <Input type="number" min="0" max="99" className="w-14 text-center px-1"
+                    value={getPens(mid, 'away')} onChange={e => setPens(mid, 'away', e.target.value)} placeholder="–" />
+                </div>
               </div>
               <div className="flex justify-end gap-2">
                 {r && <Button variant="ghost" size="sm" onClick={() => doClear(mid)}><Trash2 className="h-3.5 w-3.5" /></Button>}
