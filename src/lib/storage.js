@@ -91,6 +91,13 @@ export async function apiDeleteResult(matchId) {
   })
 }
 
+// ── Kickoffs ──────────────────────────────────────────────────
+export async function apiSaveKickoffs(map) {
+  return apiFetch('/api/kickoffs', {
+    method: 'PUT', headers: adminHeaders(), body: JSON.stringify(map),
+  })
+}
+
 // ── KO Matches ────────────────────────────────────────────────
 export async function apiSetKoMatch(matchId, home, away) {
   return apiFetch(`/api/ko-matches/${encodeURIComponent(matchId)}`, {
@@ -105,12 +112,13 @@ export async function apiDeleteKoMatch(matchId) {
 }
 
 // ── SSE (real-time updates from server) ───────────────────────
-export function listenSSE({ onParticipants, onResults, onKoMatches, onPicks }) {
+export function listenSSE({ onParticipants, onResults, onKoMatches, onPicks, onKickoffs }) {
   const es = new EventSource('/api/events')
   es.addEventListener('participants', e => onParticipants?.(JSON.parse(e.data)))
   es.addEventListener('results',      e => onResults?.(JSON.parse(e.data)))
   es.addEventListener('ko_matches',   e => onKoMatches?.(JSON.parse(e.data)))
   es.addEventListener('picks',        e => onPicks?.(JSON.parse(e.data)))
+  es.addEventListener('kickoffs',     e => onKickoffs?.(JSON.parse(e.data)))
   es.onerror = () => console.warn('SSE reconnecting…')
   return () => es.close()
 }

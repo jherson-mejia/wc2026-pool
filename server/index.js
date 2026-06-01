@@ -63,6 +63,10 @@ async function broadcastTable(table) {
     broadcast('ko_matches', map)
   } else if (table === 'picks') {
     broadcast('picks', rowsToPicks(data))
+  } else if (table === 'kickoffs') {
+    const map = {}
+    for (const r of data) map[r.match_id] = r.kickoff
+    broadcast('kickoffs', map)
   }
 }
 
@@ -102,11 +106,12 @@ app.get('/api/events', async (req, res) => {
 
   // Send full snapshot on connect
   try {
-    const [{ data: parts }, { data: results }, { data: ko }, { data: picks }] = await Promise.all([
+    const [{ data: parts }, { data: results }, { data: ko }, { data: picks }, { data: kos }] = await Promise.all([
       supabase.from('participants').select('*'),
       supabase.from('results').select('*'),
       supabase.from('ko_matches').select('*'),
       supabase.from('picks').select('*'),
+      supabase.from('kickoffs').select('*'),
     ])
 
     const resultMap = {}
@@ -115,11 +120,15 @@ app.get('/api/events', async (req, res) => {
     const koMap = {}
     for (const r of ko ?? []) koMap[r.match_id] = rowToKo(r)
 
+    const kickoffMap = {}
+    for (const r of kos ?? []) kickoffMap[r.match_id] = r.kickoff
+
     const write = (ev, d) => res.write(`event: ${ev}\ndata: ${JSON.stringify(d)}\n\n`)
     write('participants', parts ?? [])
     write('results',      resultMap)
     write('ko_matches',   koMap)
     write('picks',        rowsToPicks(picks ?? []))
+    write('kickoffs',     kickoffMap)
   } catch (err) {
     console.error('[SSE] initial snapshot failed:', err.message)
     res.write(`event: error\ndata: ${JSON.stringify({ error: err.message })}\n\n`)
@@ -241,6 +250,25 @@ app.delete('/api/ko-matches/:matchId', adminOnly, async (req, res) => {
   if (error) return res.status(500).json({ error: error.message })
   broadcastTable('ko_matches')
   res.json({ ok: true })
+})
+
+// ── Kickoffs ──────────────────────────────────────────────────
+app.get('/api/kickoffs', async (_req, res) => {
+  const { data, error } = await supabase.from('kickoffs').select('*')
+  if (error) return res.status(500).json({ error: error.message })
+  const map = {}
+  for (const r of data) map[r.match_id] = r.kickoff
+  res.json(map)
+})
+
+app.put('/api/kickoffs', adminOnly, async (req, res) => {
+  const map = req.body ?? {}
+  const rows = Object.entries(map).map(([match_id, kickoff]) => ({ match_id, kickoff, ts: Date.now() }))
+  if (!rows.length) return res.json({ ok: true, count: 0 })
+  const { error } = await supabase.from('kickoffs').upsert(rows, { onConflict: 'match_id' })
+  if (error) return res.status(500).json({ error: error.message })
+  broadcastTable('kickoffs')
+  res.json({ ok: true, count: rows.length })
 })
 
 // ── football-data.org proxy (API key stays server-side) ───────

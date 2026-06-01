@@ -6,6 +6,7 @@ import {
   apiSavePick, apiSaveResult, apiDeleteResult,
   apiSetKoMatch, apiDeleteKoMatch,
   apiUpdateParticipant, apiDeleteParticipant,
+  apiSaveKickoffs,
 } from '@/lib/storage'
 
 const INIT = {
@@ -31,7 +32,7 @@ function reducer(state, action) {
     case 'SET_RESULTS':   return { ...state, results: action.results }
     case 'SET_KO':        return { ...state, koMatches: action.koMatches }
     case 'SET_PARTS':     return { ...state, participants: action.participants }
-    case 'SET_KICKOFFS':  return { ...state, kickoffs: { ...state.kickoffs, ...action.kickoffs } }
+    case 'SET_KICKOFFS':  return { ...state, kickoffs: action.kickoffs }
     case 'PATCH_PICK':    return { ...state, myPicks: { ...state.myPicks, [action.matchId]: action.pick } }
     case 'PATCH_RESULT':  return { ...state, results: { ...state.results, [action.matchId]: action.result } }
     case 'DEL_RESULT': {
@@ -57,12 +58,11 @@ export function AppProvider({ children }) {
   // ── Boot — always server mode ─────────────────────────────────
   useEffect(() => {
     async function boot() {
-      const kickoffs = LS.get('kickoffs') || {}
       try {
         const { poolName } = await fetch('/api/config').then(r => r.json())
-        dispatch({ type: 'INIT', payload: { poolName, kickoffs } })
+        dispatch({ type: 'INIT', payload: { poolName } })
       } catch {
-        dispatch({ type: 'INIT', payload: { kickoffs } })
+        dispatch({ type: 'INIT', payload: {} })
       }
       const savedUser  = LS.get('user')
       const savedAdmin = LS.get('isAdmin')
@@ -80,6 +80,7 @@ export function AppProvider({ children }) {
         onParticipants: participants => dispatch({ type: 'SET_PARTS', participants }),
         onResults:      results      => dispatch({ type: 'SET_RESULTS', results }),
         onKoMatches:    koMatches    => dispatch({ type: 'SET_KO', koMatches }),
+        onKickoffs:     kickoffs     => dispatch({ type: 'SET_KICKOFFS', kickoffs }),
         onPicks: picks => {
           dispatch({ type: 'SET_ALL_PICKS', picks })
           dispatch({ type: 'SET_PICKS', picks: picks[state.user.email] || {} })
@@ -170,10 +171,9 @@ export function AppProvider({ children }) {
     }})
   }
 
-  function saveKickoffs(map) {
-    const merged = { ...state.kickoffs, ...map }
-    LS.set('kickoffs', merged)
-    dispatch({ type: 'SET_KICKOFFS', kickoffs: map })
+  async function saveKickoffs(map) {
+    dispatch({ type: 'SET_KICKOFFS', kickoffs: { ...state.kickoffs, ...map } })
+    await apiSaveKickoffs(map)
   }
 
   const value = {
