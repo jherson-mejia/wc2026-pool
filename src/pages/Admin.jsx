@@ -617,7 +617,8 @@ function SyncTab() {
       setLog(l => [...l, `API returned ${apiMatches.length} total match(es)`])
       const newKickoffs = mapKickoffs(apiMatches, koMatches)
       const count       = Object.keys(newKickoffs).length
-      saveKickoffs(newKickoffs)
+      if (count === 0) { setLog(l => [...l, 'No kickoff times matched — check team names']); return }
+      await saveKickoffs(newKickoffs)
       setLog(l => [...l, `✓ Stored kickoff times for ${count} match(es)`])
       toast({ title: `Schedule synced — ${count} kickoff times saved ✓` })
     } catch (e) {

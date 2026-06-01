@@ -172,7 +172,6 @@ export function AppProvider({ children }) {
   }
 
   async function saveKickoffs(map) {
-    dispatch({ type: 'SET_KICKOFFS', kickoffs: { ...state.kickoffs, ...map } })
     await apiSaveKickoffs(map)
   }
 
