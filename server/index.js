@@ -262,7 +262,7 @@ app.use('/api/football-data', async (req, res) => {
 const distDir = join(__dirname, '..', 'dist')
 if (existsSync(distDir)) {
   app.use(express.static(distDir))
-  app.get('*', (_req, res) => res.sendFile(join(distDir, 'index.html')))
+  app.get('/{*path}', (_req, res) => res.sendFile(join(distDir, 'index.html')))
   console.log('📦 Serving production build from dist/')
 }
 
