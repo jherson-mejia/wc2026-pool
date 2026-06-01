@@ -155,6 +155,16 @@ app.get('/api/participants', async (_req, res) => {
   res.json(data)
 })
 
+app.get('/api/participants/:email', async (req, res) => {
+  const { data, error } = await supabase
+    .from('participants')
+    .select('*')
+    .eq('email', req.params.email.toLowerCase())
+    .single()
+  if (error || !data) return res.status(404).json({ error: 'No account found' })
+  res.json(data)
+})
+
 app.patch('/api/participants/:email', adminOnly, async (req, res) => {
   const { error } = await supabase.from('participants').update(req.body).eq('email', req.params.email)
   if (error) return res.status(500).json({ error: error.message })

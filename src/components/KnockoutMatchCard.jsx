@@ -34,6 +34,7 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
   }
 
   const matchNum = matchId.split('_')[1]
+  const scoreColor = isExact ? 'text-[#FFD706]' : isCor ? 'text-[#22c55e]' : 'text-[#807D73]'
 
   if (!unlocked) {
     return (
@@ -50,16 +51,16 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
   return (
     <div className={cn(
       'rounded-xl border p-4 transition-all',
-      isExact   ? 'border-[#FFD706]/40 bg-[#FFD706]/5' :
-      isCor     ? 'border-[#22c55e]/30 bg-[#22c55e]/5' :
-      locked    ? 'border-[#32312D] bg-[#0D0D0B]/60' :
-                  'border-[#FFD706]/20 bg-[#0D0D0B]/60 hover:border-[#FFD706]/50',
+      isExact ? 'border-[#FFD706]/40 bg-[#FFD706]/5' :
+      isCor   ? 'border-[#22c55e]/30 bg-[#22c55e]/5' :
+      locked  ? 'border-[#32312D] bg-[#0D0D0B]/60' :
+                'border-[#FFD706]/20 bg-[#0D0D0B]/60 hover:border-[#FFD706]/50',
     )}>
       {/* Header */}
       <div className="flex items-center justify-between mb-3 text-xs text-[#807D73]">
         <span className="font-medium">Match {matchNum}</span>
         {result
-          ? <Badge variant="success">✓ {km.home} {result.home}–{result.away} {km.away}</Badge>
+          ? <Badge variant="success">✓ {result.home}–{result.away}</Badge>
           : kickoffLocked
             ? <Badge variant="locked">🔒 Locked</Badge>
             : hasPick
@@ -68,51 +69,59 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
       </div>
 
       {/* Teams + score */}
-      <div className="grid grid-cols-[1fr_72px_1fr] items-center gap-2">
-        <div className="text-right text-sm font-bold">{getFlag(km.home)} {km.home}</div>
-
-        <div className="flex items-center justify-center gap-1">
-          {locked ? (
-            <>
-              <span className={cn('score-input flex items-center justify-center pointer-events-none',
-                isExact ? 'text-[#FFD706]' : isCor ? 'text-[#22c55e]' : 'text-[#807D73]'
-              )}>
-                {hasPick ? pick.home : '–'}
-              </span>
-              <span className="text-[#807D73] text-xs">–</span>
-              <span className={cn('score-input flex items-center justify-center pointer-events-none',
-                isExact ? 'text-[#FFD706]' : isCor ? 'text-[#22c55e]' : 'text-[#807D73]'
-              )}>
-                {hasPick ? pick.away : '–'}
-              </span>
-            </>
-          ) : (
-            <>
-              <input ref={homeRef} type="number" min="0" max="99"
-                defaultValue={hasPick ? pick.home : ''} placeholder="0"
-                className="score-input" onChange={queue} />
-              <span className="text-[#807D73] text-xs font-bold">–</span>
-              <input ref={awayRef} type="number" min="0" max="99"
-                defaultValue={hasPick ? pick.away : ''} placeholder="0"
-                className="score-input" onChange={queue} />
-            </>
-          )}
+      <div className="grid grid-cols-[1fr_80px_1fr] items-center gap-2">
+        {/* Home */}
+        <div className="text-center">
+          <div className="text-4xl leading-none mb-1.5">{getFlag(km.home)}</div>
+          <div className="text-[11px] font-bold text-[#FFFDF2] leading-tight px-1 truncate">{km.home}</div>
         </div>
 
-        <div className="text-left text-sm font-bold">{getFlag(km.away)} {km.away}</div>
+        {/* Score */}
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-1">
+            {locked ? (
+              <>
+                <span className={cn('score-input flex items-center justify-center pointer-events-none', scoreColor)}>
+                  {hasPick ? pick.home : '–'}
+                </span>
+                <span className="text-[#807D73] text-xs">–</span>
+                <span className={cn('score-input flex items-center justify-center pointer-events-none', scoreColor)}>
+                  {hasPick ? pick.away : '–'}
+                </span>
+              </>
+            ) : (
+              <>
+                <input ref={homeRef} type="number" min="0" max="99"
+                  defaultValue={hasPick ? pick.home : ''} placeholder="0"
+                  className="score-input" onChange={queue} />
+                <span className="text-[#807D73] text-xs font-bold">–</span>
+                <input ref={awayRef} type="number" min="0" max="99"
+                  defaultValue={hasPick ? pick.away : ''} placeholder="0"
+                  className="score-input" onChange={queue} />
+              </>
+            )}
+          </div>
+          {!locked && <div className="text-[10px] text-[#807D73]">vs</div>}
+        </div>
+
+        {/* Away */}
+        <div className="text-center">
+          <div className="text-4xl leading-none mb-1.5">{getFlag(km.away)}</div>
+          <div className="text-[11px] font-bold text-[#FFFDF2] leading-tight px-1 truncate">{km.away}</div>
+        </div>
       </div>
 
       {/* Winner selector */}
       {!locked && (
-        <div className="mt-3 flex items-center gap-2 flex-wrap">
+        <div className="mt-3 flex items-center gap-2 flex-wrap justify-center">
           <span className="text-xs text-[#807D73]">Winner if tied after 90 min:</span>
           <Select value={pick.winner || ''} onValueChange={onWinnerChange}>
             <SelectTrigger className="w-48 h-8 text-xs">
               <SelectValue placeholder="— select —" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="home">{km.home}</SelectItem>
-              <SelectItem value="away">{km.away}</SelectItem>
+              <SelectItem value="home">{getFlag(km.home)} {km.home}</SelectItem>
+              <SelectItem value="away">{getFlag(km.away)} {km.away}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -120,9 +129,9 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
 
       {/* Points */}
       {pts != null && (
-        <div className="mt-3 flex justify-end">
+        <div className="mt-3 flex justify-center">
           {isExact
-            ? <span className="text-xs text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 rounded-full px-2.5 py-1">🎯 +{pts} pts — exact!</span>
+            ? <span className="text-xs text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 rounded-full px-3 py-1">🎯 +{pts} pts — exact!</span>
             : isCor
               ? <span className="text-xs text-[#22c55e] font-semibold">✓ +{pts} pts</span>
               : <span className="text-xs text-[#807D73]">+0 pts</span>}

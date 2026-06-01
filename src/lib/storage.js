@@ -53,6 +53,10 @@ export async function apiAdminLogin(password) {
 }
 
 // ── Participants ──────────────────────────────────────────────
+export async function apiGetParticipant(email) {
+  return apiFetch(`/api/participants/${encodeURIComponent(email)}`)
+}
+
 export async function apiUpdateParticipant(email, updates) {
   return apiFetch(`/api/participants/${encodeURIComponent(email)}`, {
     method: 'PATCH', headers: adminHeaders(), body: JSON.stringify(updates),

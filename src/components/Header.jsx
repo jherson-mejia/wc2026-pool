@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Trophy, LogOut, Settings } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useApp } from '@/context/AppContext'
@@ -10,6 +11,7 @@ const NAV = [
 
 export default function Header() {
   const { user, isAdmin, poolName, logout } = useApp()
+  const [emblemErr, setEmblemErr] = useState(false)
 
   return (
     <header className="sticky top-0 z-50 bg-[#0D0D0B]/95 backdrop-blur-md border-b border-[#1A1A17]">
@@ -20,17 +22,27 @@ export default function Header() {
       />
 
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 max-w-4xl mx-auto">
+      <div className="flex items-center justify-between px-4 py-2.5 max-w-4xl mx-auto">
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#FFD706] shrink-0">
-            <Trophy className="h-4 w-4 text-[#0D0D0B]" />
+          {/* WC emblem */}
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-[#FFD706] shrink-0 overflow-hidden">
+            {!emblemErr ? (
+              <img
+                src="https://crests.football-data.org/wm26.png"
+                alt="WC 2026"
+                className="w-8 h-8 object-contain"
+                onError={() => setEmblemErr(true)}
+              />
+            ) : (
+              <Trophy className="h-4 w-4 text-[#0D0D0B]" />
+            )}
           </div>
           <div>
             <div className="text-sm font-extrabold leading-tight tracking-tight text-gradient">
               {poolName}
             </div>
-            <div className="text-[10px] text-[#807D73] leading-none mt-0.5">
-              WC2026 · June 11 – July 19
+            <div className="text-[10px] text-[#807D73] leading-none mt-0.5 flex items-center gap-1">
+              🇺🇸🇨🇦🇲🇽 · Jun 11 – Jul 19
             </div>
           </div>
         </div>

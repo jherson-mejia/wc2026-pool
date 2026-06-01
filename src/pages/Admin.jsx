@@ -396,17 +396,10 @@ function ParticipantCard({ p, allPicks, myPicks, results, koMatches, user, onDel
 
 // ── Participants ──────────────────────────────────────────────
 function ParticipantsTab() {
-  const { participants, allPicks, myPicks, results, koMatches, user, importPicks,
+  const { participants, allPicks, myPicks, results, koMatches, user,
           updateParticipant, deleteParticipant, adminSavePick } = useApp()
-  const { toast } = useToast()
-  const [importText, setImportText] = useState('')
 
   const parts = participants.filter(p => p.email !== '__admin__')
-
-  function doImport() {
-    try { importPicks(importText); toast({ title: 'Picks imported ✓' }); setImportText('') }
-    catch { toast({ title: 'Invalid format', variant: 'destructive' }) }
-  }
 
   return (
     <div className="space-y-4">
@@ -435,23 +428,6 @@ function ParticipantsTab() {
           ))}
         </div>
       )}
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Import Picks (Local Mode)</CardTitle>
-          <CardDescription className="text-xs">Paste a participant's exported picks JSON to add them to the pool.</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-0 space-y-2">
-          <textarea
-            value={importText}
-            onChange={e => setImportText(e.target.value)}
-            rows={5}
-            placeholder='{"email":"...","name":"...","picks":{...}}'
-            className="w-full rounded-md border border-[#32312D] bg-[#232920] px-3 py-2 text-xs text-[#FFFDF2] placeholder:text-[#807D73] focus:outline-none focus:ring-2 focus:ring-[#FFD706] resize-none font-mono"
-          />
-          <Button size="sm" variant="secondary" onClick={doImport}>Import Picks</Button>
-        </CardContent>
-      </Card>
     </div>
   )
 }

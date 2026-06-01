@@ -25,6 +25,8 @@ export default function MatchCard({ match, pick = {}, result, onSave, disabled =
     }, 700)
   }
 
+  const scoreColor = isExact ? 'text-[#FFD706]' : isCorrect ? 'text-[#22c55e]' : 'text-[#807D73]'
+
   return (
     <div className={cn(
       'rounded-xl border p-4 transition-all',
@@ -45,50 +47,54 @@ export default function MatchCard({ match, pick = {}, result, onSave, disabled =
               : <Badge variant="locked">—</Badge>}
       </div>
 
-      {/* Teams + score inputs */}
-      <div className="grid grid-cols-[1fr_72px_1fr] items-center gap-2">
-        <div className="text-right">
-          <span className="text-sm font-bold">{getFlag(match.home)} {match.home}</span>
+      {/* Teams + score */}
+      <div className="grid grid-cols-[1fr_80px_1fr] items-center gap-2">
+        {/* Home */}
+        <div className="text-center">
+          <div className="text-4xl leading-none mb-1.5">{getFlag(match.home)}</div>
+          <div className="text-[11px] font-bold text-[#FFFDF2] leading-tight px-1 truncate">{match.home}</div>
         </div>
 
-        <div className="flex items-center justify-center gap-1">
-          {locked ? (
-            <>
-              <span className={cn('score-input flex items-center justify-center pointer-events-none',
-                isExact ? 'text-[#FFD706]' : isCorrect ? 'text-[#22c55e]' : 'text-[#807D73]'
-              )}>
-                {hasPick ? pick.home : '–'}
-              </span>
-              <span className="text-[#807D73] text-xs font-bold">–</span>
-              <span className={cn('score-input flex items-center justify-center pointer-events-none',
-                isExact ? 'text-[#FFD706]' : isCorrect ? 'text-[#22c55e]' : 'text-[#807D73]'
-              )}>
-                {hasPick ? pick.away : '–'}
-              </span>
-            </>
-          ) : (
-            <>
-              <input ref={homeRef} type="number" min="0" max="99"
-                defaultValue={hasPick ? pick.home : ''} placeholder="0"
-                className="score-input" onChange={queue} />
-              <span className="text-[#807D73] text-xs font-bold">–</span>
-              <input ref={awayRef} type="number" min="0" max="99"
-                defaultValue={hasPick ? pick.away : ''} placeholder="0"
-                className="score-input" onChange={queue} />
-            </>
-          )}
+        {/* Score */}
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-1">
+            {locked ? (
+              <>
+                <span className={cn('score-input flex items-center justify-center pointer-events-none', scoreColor)}>
+                  {hasPick ? pick.home : '–'}
+                </span>
+                <span className="text-[#807D73] text-xs font-bold">–</span>
+                <span className={cn('score-input flex items-center justify-center pointer-events-none', scoreColor)}>
+                  {hasPick ? pick.away : '–'}
+                </span>
+              </>
+            ) : (
+              <>
+                <input ref={homeRef} type="number" min="0" max="99"
+                  defaultValue={hasPick ? pick.home : ''} placeholder="0"
+                  className="score-input" onChange={queue} />
+                <span className="text-[#807D73] text-xs font-bold">–</span>
+                <input ref={awayRef} type="number" min="0" max="99"
+                  defaultValue={hasPick ? pick.away : ''} placeholder="0"
+                  className="score-input" onChange={queue} />
+              </>
+            )}
+          </div>
+          {!locked && <div className="text-[10px] text-[#807D73]">vs</div>}
         </div>
 
-        <div className="text-left">
-          <span className="text-sm font-bold">{getFlag(match.away)} {match.away}</span>
+        {/* Away */}
+        <div className="text-center">
+          <div className="text-4xl leading-none mb-1.5">{getFlag(match.away)}</div>
+          <div className="text-[11px] font-bold text-[#FFFDF2] leading-tight px-1 truncate">{match.away}</div>
         </div>
       </div>
 
       {/* Points earned */}
       {pts != null && (
-        <div className="mt-3 flex justify-end">
+        <div className="mt-3 flex justify-center">
           {isExact
-            ? <span className="text-xs text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 rounded-full px-2.5 py-1">🎯 +{pts} pts — exact!</span>
+            ? <span className="text-xs text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 rounded-full px-3 py-1">🎯 +{pts} pts — exact!</span>
             : isCorrect
               ? <span className="text-xs text-[#22c55e] font-semibold">✓ +{pts} pt</span>
               : <span className="text-xs text-[#807D73]">+0 pts</span>}

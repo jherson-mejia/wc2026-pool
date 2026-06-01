@@ -1,18 +1,15 @@
 import { createContext, useContext, useReducer, useEffect, useRef } from 'react'
 import {
-  LS, dbSet, dbDelete,
+  LS,
   listenSSE,
-  apiLogin, apiAdminLogin,
+  apiLogin, apiAdminLogin, apiGetParticipant,
   apiSavePick, apiSaveResult, apiDeleteResult,
   apiSetKoMatch, apiDeleteKoMatch,
   apiUpdateParticipant, apiDeleteParticipant,
 } from '@/lib/storage'
 
-// ── Initial state ─────────────────────────────────────────────
 const INIT = {
   ready:        false,
-  mode:         null,    // 'server' | 'local'
-  adminPassword: '',     // local mode only
   poolName:     'World Cup 2026 Pool',
   user:         null,
   isAdmin:      false,
@@ -24,12 +21,11 @@ const INIT = {
   kickoffs:     {},
 }
 
-// ── Reducer ───────────────────────────────────────────────────
 function reducer(state, action) {
   switch (action.type) {
     case 'INIT':          return { ...state, ...action.payload, ready: true }
     case 'LOGIN':         return { ...state, user: action.user, isAdmin: action.isAdmin }
-    case 'LOGOUT':        return { ...INIT, ready: true, mode: state.mode, adminPassword: state.adminPassword, poolName: state.poolName }
+    case 'LOGOUT':        return { ...INIT, ready: true, poolName: state.poolName }
     case 'SET_PICKS':     return { ...state, myPicks: action.picks }
     case 'SET_ALL_PICKS': return { ...state, allPicks: action.picks }
     case 'SET_RESULTS':   return { ...state, results: action.results }
@@ -51,7 +47,6 @@ function reducer(state, action) {
   }
 }
 
-// ── Context ───────────────────────────────────────────────────
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
 
@@ -59,102 +54,64 @@ export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, INIT)
   const unsubs = useRef([])
 
-  // ── Boot ─────────────────────────────────────────────────────
+  // ── Boot — always server mode ─────────────────────────────────
   useEffect(() => {
     async function boot() {
-      const cfg = LS.get('config')
-      if (!cfg?.v) { dispatch({ type: 'INIT', payload: { ready: true } }); return }
-
       const kickoffs = LS.get('kickoffs') || {}
-
-      if (cfg.mode === 'server') {
-        try {
-          const { poolName } = await fetch('/api/config').then(r => r.json())
-          dispatch({ type: 'INIT', payload: { mode: 'server', poolName, kickoffs, ready: true } })
-        } catch {
-          dispatch({ type: 'INIT', payload: { mode: 'server', poolName: cfg.poolName, kickoffs, ready: true } })
-        }
-
-        const savedUser  = LS.get('user')
-        const savedAdmin = LS.get('isAdmin')
-        if (savedUser) dispatch({ type: 'LOGIN', user: savedUser, isAdmin: !!savedAdmin })
-
-      } else {
-        // local mode — unchanged
-        dispatch({
-          type: 'INIT',
-          payload: { mode: 'local', adminPassword: cfg.adminPassword, poolName: cfg.poolName, kickoffs, ready: true },
-        })
-        const savedUser  = LS.get('user')
-        const savedAdmin = LS.get('isAdmin')
-        if (savedUser) dispatch({ type: 'LOGIN', user: savedUser, isAdmin: !!savedAdmin })
+      try {
+        const { poolName } = await fetch('/api/config').then(r => r.json())
+        dispatch({ type: 'INIT', payload: { poolName, kickoffs } })
+      } catch {
+        dispatch({ type: 'INIT', payload: { kickoffs } })
       }
+      const savedUser  = LS.get('user')
+      const savedAdmin = LS.get('isAdmin')
+      if (savedUser) dispatch({ type: 'LOGIN', user: savedUser, isAdmin: !!savedAdmin })
     }
     boot()
   }, [])
 
-  // ── Attach data listeners after login ─────────────────────────
+  // ── SSE listener — attach after login ─────────────────────────
   useEffect(() => {
     if (!state.user || !state.ready) return
     unsubs.current.forEach(u => u())
-    unsubs.current = []
-
-    if (state.mode === 'server') {
-      unsubs.current.push(
-        listenSSE({
-          onParticipants: participants => dispatch({ type: 'SET_PARTS', participants }),
-          onResults:      results      => dispatch({ type: 'SET_RESULTS', results }),
-          onKoMatches:    koMatches    => dispatch({ type: 'SET_KO', koMatches }),
-          onPicks:        picks => {
-            dispatch({ type: 'SET_ALL_PICKS', picks })
-            dispatch({ type: 'SET_PICKS', picks: picks[state.user.email] || {} })
-          },
-        })
-      )
-    } else {
-      // local mode
-      const ap = LS.get('picks') || {}
-      dispatch({ type: 'SET_PICKS',    picks: ap[state.user?.email] || {} })
-      dispatch({ type: 'SET_ALL_PICKS', picks: ap })
-      dispatch({ type: 'SET_RESULTS',  results: LS.get('results') || {} })
-      dispatch({ type: 'SET_KO',       koMatches: LS.get('ko_matches') || {} })
-      dispatch({ type: 'SET_PARTS',    participants: Object.values(LS.get('participants') || {}) })
-    }
-
+    unsubs.current = [
+      listenSSE({
+        onParticipants: participants => dispatch({ type: 'SET_PARTS', participants }),
+        onResults:      results      => dispatch({ type: 'SET_RESULTS', results }),
+        onKoMatches:    koMatches    => dispatch({ type: 'SET_KO', koMatches }),
+        onPicks: picks => {
+          dispatch({ type: 'SET_ALL_PICKS', picks })
+          dispatch({ type: 'SET_PICKS', picks: picks[state.user.email] || {} })
+        },
+      }),
+    ]
     return () => unsubs.current.forEach(u => u())
-  }, [state.user, state.mode, state.ready])
+  }, [state.user, state.ready])
 
   // ── Actions ───────────────────────────────────────────────────
-  async function saveConfig({ mode, poolName, adminPassword }) {
-    const cfg = { v: 1, mode, poolName, adminPassword }
-    LS.set('config', cfg)
-    dispatch({ type: 'INIT', payload: { mode, poolName, adminPassword, ready: true } })
+  async function login(name, email) {
+    await apiLogin(name, email)
+    const user = { name, email: email.toLowerCase() }
+    LS.set('user', user)
+    LS.set('isAdmin', false)
+    dispatch({ type: 'LOGIN', user, isAdmin: false })
   }
 
-  async function login(name, email) {
-    const user = { name, email: email.toLowerCase() }
-    if (state.mode === 'server') {
-      await apiLogin(name, email)
-    } else {
-      const ps = LS.get('participants') || {}
-      ps[user.email] = { ...user, joinedAt: Date.now() }
-      LS.set('participants', ps)
-      dispatch({ type: 'SET_PARTS', participants: Object.values(ps) })
-      await dbSet('participants', user.email, { ...user, joinedAt: Date.now() })
-    }
-    LS.set('user', user); LS.set('isAdmin', false)
+  async function loginByEmail(email) {
+    const participant = await apiGetParticipant(email) // throws 404 if not registered
+    const user = { name: participant.name, email: participant.email }
+    LS.set('user', user)
+    LS.set('isAdmin', false)
     dispatch({ type: 'LOGIN', user, isAdmin: false })
   }
 
   async function adminLogin(password) {
-    if (state.mode === 'server') {
-      await apiAdminLogin(password) // throws on wrong password
-      LS.set('adminPw', password)
-    } else {
-      if (password !== state.adminPassword) throw new Error('Wrong password')
-    }
+    await apiAdminLogin(password)
     const user = { name: 'Admin', email: '__admin__' }
-    LS.set('user', user); LS.set('isAdmin', true)
+    LS.set('user', user)
+    LS.set('isAdmin', true)
+    LS.set('adminPw', password)
     dispatch({ type: 'LOGIN', user, isAdmin: true })
   }
 
@@ -171,100 +128,46 @@ export function AppProvider({ children }) {
     }
     const pick = { matchId, email: state.user.email, home, away, winner, ts: Date.now() }
     dispatch({ type: 'PATCH_PICK', matchId, pick })
-
-    if (state.mode === 'server') {
-      await apiSavePick(state.user.email, matchId, home, away, winner)
-    } else {
-      await dbSet('picks', `${state.user.email}_${matchId}`, pick)
-      const ap = LS.get('picks') || {}
-      if (!ap[state.user.email]) ap[state.user.email] = {}
-      ap[state.user.email][matchId] = pick
-      LS.set('picks', ap)
-      dispatch({ type: 'SET_ALL_PICKS', picks: { ...state.allPicks, [state.user.email]: { ...(state.allPicks[state.user.email] || {}), [matchId]: pick } } })
-    }
+    await apiSavePick(state.user.email, matchId, home, away, winner)
   }
 
   async function saveResult(matchId, home, away, winner = null) {
     const result = { matchId, home, away, winner, ts: Date.now() }
     dispatch({ type: 'PATCH_RESULT', matchId, result })
-    if (state.mode === 'server') {
-      await apiSaveResult(matchId, home, away, winner)
-    } else {
-      await dbSet('results', matchId, result)
-      LS.set('results', { ...state.results, [matchId]: result })
-    }
+    await apiSaveResult(matchId, home, away, winner)
   }
 
   async function clearResult(matchId) {
     dispatch({ type: 'DEL_RESULT', matchId })
-    if (state.mode === 'server') {
-      await apiDeleteResult(matchId)
-    } else {
-      await dbDelete('results', matchId)
-      const r = { ...state.results }; delete r[matchId]; LS.set('results', r)
-    }
+    await apiDeleteResult(matchId)
   }
 
   async function setKoMatch(matchId, home, away) {
     const km = { matchId, home, away, ts: Date.now() }
     dispatch({ type: 'PATCH_KO', matchId, km })
-    if (state.mode === 'server') {
-      await apiSetKoMatch(matchId, home, away)
-    } else {
-      await dbSet('ko_matches', matchId, km)
-      LS.set('ko_matches', { ...state.koMatches, [matchId]: km })
-    }
+    await apiSetKoMatch(matchId, home, away)
   }
 
   async function clearKoMatch(matchId) {
     dispatch({ type: 'DEL_KO', matchId })
-    if (state.mode === 'server') {
-      await apiDeleteKoMatch(matchId)
-    } else {
-      await dbDelete('ko_matches', matchId)
-      const k = { ...state.koMatches }; delete k[matchId]; LS.set('ko_matches', k)
-    }
+    await apiDeleteKoMatch(matchId)
   }
 
   async function updateParticipant(email, updates) {
-    if (state.mode === 'server') {
-      await apiUpdateParticipant(email, updates)
-    } else {
-      const ps = LS.get('participants') || {}
-      ps[email] = { ...ps[email], ...updates }
-      LS.set('participants', ps)
-      dispatch({ type: 'SET_PARTS', participants: Object.values(ps) })
-    }
+    await apiUpdateParticipant(email, updates)
   }
 
   async function deleteParticipant(email) {
-    if (state.mode === 'server') {
-      await apiDeleteParticipant(email)
-    } else {
-      const picks = state.allPicks[email] || {}
-      for (const matchId of Object.keys(picks)) await dbDelete('picks', `${email}_${matchId}`)
-      await dbDelete('participants', email)
-      const ps = LS.get('participants') || {}; delete ps[email]; LS.set('participants', ps)
-      const ap = LS.get('picks') || {}; delete ap[email]; LS.set('picks', ap)
-      const newAllPicks = { ...state.allPicks }; delete newAllPicks[email]
-      dispatch({ type: 'SET_PARTS', participants: Object.values(ps) })
-      dispatch({ type: 'SET_ALL_PICKS', picks: newAllPicks })
-    }
+    await apiDeleteParticipant(email)
   }
 
   async function adminSavePick(email, matchId, home, away, winner = null) {
+    await apiSavePick(email, matchId, home, away, winner)
     const pick = { matchId, email, home, away, winner, ts: Date.now() }
-    if (state.mode === 'server') {
-      await apiSavePick(email, matchId, home, away, winner)
-    } else {
-      await dbSet('picks', `${email}_${matchId}`, pick)
-      const ap = LS.get('picks') || {}
-      if (!ap[email]) ap[email] = {}
-      ap[email][matchId] = pick
-      LS.set('picks', ap)
-      const newAllPicks = { ...state.allPicks, [email]: { ...(state.allPicks[email] || {}), [matchId]: pick } }
-      dispatch({ type: 'SET_ALL_PICKS', picks: newAllPicks })
-    }
+    dispatch({ type: 'SET_ALL_PICKS', picks: {
+      ...state.allPicks,
+      [email]: { ...(state.allPicks[email] || {}), [matchId]: pick },
+    }})
   }
 
   function saveKickoffs(map) {
@@ -273,26 +176,11 @@ export function AppProvider({ children }) {
     dispatch({ type: 'SET_KICKOFFS', kickoffs: map })
   }
 
-  function importPicks(json) {
-    const data = JSON.parse(json)
-    if (!data.email || !data.picks) throw new Error('Invalid format')
-    const ap = LS.get('picks') || {}
-    ap[data.email] = data.picks
-    LS.set('picks', ap)
-    dispatch({ type: 'SET_ALL_PICKS', picks: ap })
-    if (!state.participants.find(p => p.email === data.email)) {
-      const ps = LS.get('participants') || {}
-      ps[data.email] = { name: data.name || data.email, email: data.email }
-      LS.set('participants', ps)
-      dispatch({ type: 'SET_PARTS', participants: Object.values(ps) })
-    }
-  }
-
   const value = {
     ...state,
-    saveConfig, login, adminLogin, logout,
+    login, loginByEmail, adminLogin, logout,
     savePick, saveResult, clearResult,
-    setKoMatch, clearKoMatch, importPicks,
+    setKoMatch, clearKoMatch,
     saveKickoffs,
     updateParticipant, deleteParticipant, adminSavePick,
   }

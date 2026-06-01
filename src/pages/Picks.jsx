@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { ChevronDown, Download, Lock, Target, CheckCircle2, Zap } from 'lucide-react'
 import { useApp } from '@/context/AppContext'
 import { useToast } from '@/components/ui/toast'
-import { GROUPS, GROUP_MATCHES, KO_ROUNDS } from '@/data/worldcup'
+import { GROUPS, GROUP_MATCHES, KO_ROUNDS, getFlag } from '@/data/worldcup'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import MatchCard from '@/components/MatchCard'
@@ -34,7 +34,12 @@ function GroupAccordion({ group, myPicks, results, kickoffs, onSave, isAdmin }) 
         className="w-full flex items-center justify-between px-4 py-3.5 bg-[#32312D]/50 hover:bg-[#32312D]/80 transition-colors"
       >
         <div className="text-left">
-          <div className="font-bold text-sm text-[#FFFDF2]">Group {group.id}</div>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-sm text-[#FFFDF2]">Group {group.id}</span>
+            <span className="text-base leading-none">
+              {group.teams.map(t => getFlag(t)).join('')}
+            </span>
+          </div>
           <div className="text-xs text-[#807D73] mt-0.5">{group.teams.join(' · ')}</div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
