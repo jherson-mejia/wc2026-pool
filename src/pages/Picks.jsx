@@ -1,113 +1,175 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { ChevronDown, Download, Lock, Target, CheckCircle2, Zap } from 'lucide-react'
 import { useApp } from '@/context/AppContext'
 import { useToast } from '@/components/ui/toast'
-import { GROUPS, GROUP_MATCHES, KO_ROUNDS, getFlag } from '@/data/worldcup'
+import { GROUP_MATCHES, KO_ROUNDS } from '@/data/worldcup'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import MatchCard from '@/components/MatchCard'
 import KnockoutMatchCard from '@/components/KnockoutMatchCard'
 import HowItWorks from '@/components/HowItWorks'
-import { cn, fmtKickoff } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import Countdown from '@/components/Countdown'
-import { calcTotals } from '@/lib/scoring'
+import { calcTotals, calcMatchPoints } from '@/lib/scoring'
 
-// ── Group accordion ───────────────────────────────────────────
-function GroupAccordion({ group, myPicks, results, kickoffs, onSave, isAdmin }) {
-  const [open, setOpen] = useState(['A', 'B', 'C'].includes(group.id))
-  const matches = GROUP_MATCHES
-    .filter(m => m.group === group.id)
-    .sort((a, b) => {
-      const ka = kickoffs[a.id] ? new Date(kickoffs[a.id]).getTime() : Infinity
-      const kb = kickoffs[b.id] ? new Date(kickoffs[b.id]).getTime() : Infinity
-      return ka - kb
-    })
-  const done    = matches.filter(m => results[m.id]).length
-  const nextMatch = matches.find(m => kickoffs[m.id] && !results[m.id])
-  const nextKi    = nextMatch ? fmtKickoff(kickoffs[nextMatch.id]) : null
-  const myPts   = matches.reduce((s, m) => {
-    if (!results[m.id] || !myPicks[m.id]) return s
-    const p = myPicks[m.id], r = results[m.id]
-    const ph = Number(p.home), pa = Number(p.away)
-    const rh = Number(r.home), ra = Number(r.away)
-    if (ph === rh && pa === ra) return s + 3
-    const po = ph > pa ? 'H' : pa > ph ? 'A' : 'D'
-    const ro = rh > ra ? 'H' : ra > rh ? 'A' : 'D'
-    return s + (po === ro ? 1 : 0)
-  }, 0)
+// ── Next-match ticking countdown ─────────────────────────────
+function TickingCountdown({ kickoff }) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const ms = Math.max(0, new Date(kickoff).getTime() - now)
+  if (ms === 0) return null
+  const h = Math.floor(ms / 3_600_000)
+  const m = Math.floor((ms % 3_600_000) / 60_000)
+  const s = Math.floor((ms % 60_000) / 1_000)
+  const str = h > 0
+    ? `${h}h ${String(m).padStart(2, '0')}m`
+    : `${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`
+  return (
+    <div className="flex items-center justify-center gap-2 py-1.5 mb-1.5 rounded-lg bg-[#FFD706]/10 border border-[#FFD706]/30">
+      <Zap className="h-3 w-3 text-[#FFD706] animate-pulse shrink-0" />
+      <span className="text-xs font-bold text-[#FFD706] font-mono">{str} until kickoff</span>
+    </div>
+  )
+}
+
+// ── Single match-day section ──────────────────────────────────
+function DaySection({ dateKey, label, sublabel, isToday, allPast, hasNext, matches, myPicks, results, kickoffs, onSave, nextMatchId }) {
+  const [open, setOpen] = useState(isToday || hasNext)
+
+  const done  = matches.filter(m => results[m.id]).length
+  const myPts = matches.reduce((s, m) =>
+    s + calcMatchPoints(myPicks[m.id], results[m.id], 'group'), 0)
 
   return (
-    <div className="rounded-xl border border-[#32312D] overflow-hidden">
+    <div className={cn(
+      'rounded-xl border overflow-hidden transition-all',
+      isToday ? 'border-[#FF8200]/50' : 'border-[#32312D]',
+    )}>
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-4 py-3.5 bg-[#32312D]/50 hover:bg-[#32312D]/80 transition-colors"
+        className={cn(
+          'w-full flex items-center justify-between px-4 py-3.5 transition-colors',
+          isToday
+            ? 'bg-[#FF8200]/10 hover:bg-[#FF8200]/15'
+            : 'bg-[#32312D]/50 hover:bg-[#32312D]/80',
+          allPast && !isToday && 'opacity-60',
+        )}
       >
         <div className="text-left">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-sm text-[#FFFDF2]">Group {group.id}</span>
-            <span className="text-base leading-none">
-              {group.teams.map(t => getFlag(t)).join('')}
+            <span className={cn('font-bold text-sm', isToday ? 'text-[#FF8200]' : 'text-[#FFFDF2]')}>
+              {label}
             </span>
+            {isToday && (
+              <span className="flex items-center gap-1 text-[10px] font-bold text-[#FF8200]">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#FF8200] animate-pulse" />
+                Today
+              </span>
+            )}
           </div>
-          <div className="text-xs text-[#807D73] mt-0.5">{group.teams.join(' · ')}</div>
+          <div className="text-xs text-[#807D73] mt-0.5">{sublabel} · {matches.length} matches</div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {myPts > 0 && (
-            <span className="text-xs font-bold text-[#FFD706]">+{myPts} pts</span>
-          )}
-          {nextKi && !open && (
-            <span className={cn(
-              'text-[10px] font-semibold px-1.5 py-0.5 rounded-full border',
-              nextKi.isLive    ? 'text-[#FF8200] border-[#FF8200]/30 bg-[#FF8200]/10' :
-              nextKi.isToday   ? 'text-[#FF8200] border-[#FF8200]/20 bg-[#FF8200]/5' :
-              nextKi.isTomorrow ? 'text-[#FFD706] border-[#FFD706]/20 bg-[#FFD706]/5' :
-                                  'text-[#807D73] border-[#32312D]',
-            )}>
-              {nextKi.isLive ? '🔴 Live' : nextKi.day}
-            </span>
-          )}
-          <span className="text-xs text-[#807D73]">{done}/6</span>
+          {myPts > 0 && <span className="text-xs font-bold text-[#FFD706]">+{myPts} pts</span>}
+          <span className="text-xs text-[#807D73]">{done}/{matches.length}</span>
           <ChevronDown className={cn('h-4 w-4 text-[#807D73] transition-transform', open && 'rotate-180')} />
         </div>
       </button>
 
       {open && (
         <div className="p-3 space-y-2 bg-[#0D0D0B]/40">
-          {/* Progress bar */}
-          <div className="h-1 rounded-full bg-[#32312D] overflow-hidden mb-3">
-            <div className="h-full bg-[#FFD706] rounded-full transition-all" style={{ width: `${(done / 6) * 100}%` }} />
-          </div>
-          {matches.map((m, idx) => {
-            const ki    = fmtKickoff(kickoffs[m.id])
-            const prevKi = idx > 0 ? fmtKickoff(kickoffs[matches[idx - 1].id]) : null
-            const showDateSep = ki && (!prevKi || ki.date.toDateString() !== prevKi.date.toDateString())
+          {matches.map(m => {
+            const ko        = kickoffs[m.id]
+            const matchPast = ko && Date.now() >= new Date(ko).getTime()
+            const isNext    = m.id === nextMatchId
             return (
-              <div key={m.id}>
-                {showDateSep && (
-                  <div className="flex items-center gap-2 pt-1 pb-0.5">
-                    <div className="flex-1 h-px bg-[#32312D]" />
-                    <span className={cn(
-                      'text-[10px] font-bold uppercase tracking-widest shrink-0',
-                      ki.isToday ? 'text-[#FF8200]' : ki.isTomorrow ? 'text-[#FFD706]' : 'text-[#807D73]',
-                    )}>
-                      {ki.day}
-                    </span>
-                    <div className="flex-1 h-px bg-[#32312D]" />
-                  </div>
-                )}
+              <div key={m.id} className={cn('transition-all', matchPast && !isNext && 'opacity-55')}>
+                {isNext && ko && <TickingCountdown kickoff={ko} />}
                 <MatchCard
                   match={m}
                   pick={myPicks[m.id]}
                   result={results[m.id]}
-                  kickoff={kickoffs[m.id]}
+                  kickoff={ko}
                   onSave={onSave}
-                  disabled={isAdmin}
+                  label={`Group ${m.group}`}
+                  isNext={isNext}
                 />
               </div>
             )
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Chronological match-day view ──────────────────────────────
+function MatchDayView({ myPicks, results, kickoffs, onSave }) {
+  const sorted = useMemo(() => [...GROUP_MATCHES].sort((a, b) => {
+    const ka = kickoffs[a.id] ? new Date(kickoffs[a.id]).getTime() : Infinity
+    const kb = kickoffs[b.id] ? new Date(kickoffs[b.id]).getTime() : Infinity
+    return ka - kb
+  }), [kickoffs])
+
+  const nextMatchId = useMemo(() => {
+    const now = Date.now()
+    return sorted.find(m =>
+      !results[m.id] && (!kickoffs[m.id] || now < new Date(kickoffs[m.id]).getTime())
+    )?.id ?? null
+  }, [sorted, results, kickoffs])
+
+  const days = useMemo(() => {
+    const map = new Map()
+    const now  = new Date()
+    const todayStr    = now.toDateString()
+    const tomorrowStr = new Date(now.getTime() + 86_400_000).toDateString()
+
+    for (const m of sorted) {
+      const ko = kickoffs[m.id]
+      let dateKey, label, sublabel, isToday
+
+      if (ko) {
+        const d   = new Date(ko)
+        dateKey   = d.toDateString()
+        isToday   = dateKey === todayStr
+        const isTomorrow = dateKey === tomorrowStr
+        label     = isToday ? 'Today' : isTomorrow ? 'Tomorrow'
+                  : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+        sublabel  = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+      } else {
+        dateKey  = '__tbd__'
+        label    = 'Date TBD'
+        sublabel = 'Kickoff time not set'
+        isToday  = false
+      }
+
+      if (!map.has(dateKey)) map.set(dateKey, { dateKey, label, sublabel, isToday, matches: [] })
+      map.get(dateKey).matches.push(m)
+    }
+
+    return [...map.values()].map(day => ({
+      ...day,
+      allPast:  day.matches.every(m => kickoffs[m.id] && Date.now() >= new Date(kickoffs[m.id]).getTime()),
+      hasNext:  day.matches.some(m => m.id === nextMatchId),
+    }))
+  }, [sorted, kickoffs, nextMatchId])
+
+  return (
+    <div className="space-y-2">
+      {days.map(day => (
+        <DaySection
+          key={day.dateKey}
+          {...day}
+          myPicks={myPicks}
+          results={results}
+          kickoffs={kickoffs}
+          onSave={onSave}
+          nextMatchId={nextMatchId}
+        />
+      ))}
     </div>
   )
 }
@@ -313,19 +375,12 @@ export default function Picks() {
           <div className="text-xs text-[#807D73] bg-[#32312D]/30 rounded-lg px-3 py-2 mb-4">
             📊 Group Stage: <span className="text-[#FFFDF2] font-semibold">1pt</span> right result · <span className="text-[#FFD706] font-semibold">3pts</span> exact score
           </div>
-          <div className="space-y-2">
-            {GROUPS.map(g => (
-              <GroupAccordion
-                key={g.id}
-                group={g}
-                myPicks={myPicks}
-                results={results}
-                kickoffs={kickoffs}
-                onSave={handleSave}
-                isAdmin={isAdmin}
-              />
-            ))}
-          </div>
+          <MatchDayView
+            myPicks={myPicks}
+            results={results}
+            kickoffs={kickoffs}
+            onSave={handleSave}
+          />
         </TabsContent>
 
         {KO_ROUNDS.map(round => (

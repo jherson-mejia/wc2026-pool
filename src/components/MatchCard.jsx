@@ -4,7 +4,7 @@ import { getFlag, GROUP_SCORING } from '@/data/worldcup'
 import { calcMatchPoints } from '@/lib/scoring'
 import { cn, fmtKickoff } from '@/lib/utils'
 
-export default function MatchCard({ match, pick = {}, result, onSave, disabled = false, kickoff = null }) {
+export default function MatchCard({ match, pick = {}, result, onSave, disabled = false, kickoff = null, label = null, isNext = false }) {
   const homeRef = useRef(null)
   const awayRef = useRef(null)
   const timerRef = useRef(null)
@@ -30,6 +30,7 @@ export default function MatchCard({ match, pick = {}, result, onSave, disabled =
 
   const borderClass = isExact   ? 'border-[#FFD706]/40 bg-[#FFD706]/5'
     : isCorrect ? 'border-[#22c55e]/30 bg-[#22c55e]/5'
+    : isNext    ? 'border-[#FFD706]/60 bg-[#FFD706]/5 shadow-[0_0_20px_rgba(255,215,6,0.12)]'
     : ki?.isToday && !result ? 'border-[#FF8200]/40 bg-[#FF8200]/5'
     : locked    ? 'border-[#32312D] bg-[#0D0D0B]/60'
     :             'border-[#32312D] bg-[#0D0D0B]/60 hover:border-[#807D73]'
@@ -39,7 +40,7 @@ export default function MatchCard({ match, pick = {}, result, onSave, disabled =
       {/* Header */}
       <div className="flex items-center justify-between mb-3 text-xs text-[#807D73]">
         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-          <span className="font-medium shrink-0">MD{match.matchday}</span>
+          <span className="font-medium shrink-0">{label ?? `MD${match.matchday}`}</span>
           {ki && (
             ki.isLive ? (
               <span className="flex items-center gap-1 text-[#FF8200] font-bold shrink-0">
