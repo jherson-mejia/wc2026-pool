@@ -701,7 +701,7 @@ function SyncTab() {
 // ── Main Admin page ───────────────────────────────────────────
 export default function Admin() {
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="max-w-2xl lg:max-w-3xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-extrabold text-[#FFFDF2] mb-5 tracking-tight">
         🔧 Admin Panel
       </h1>

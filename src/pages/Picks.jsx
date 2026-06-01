@@ -261,7 +261,7 @@ export default function Picks() {
 
   if (isAdmin) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="max-w-2xl lg:max-w-3xl mx-auto px-4 py-6">
         <div className="rounded-xl border border-[#32312D] bg-[#32312D]/20 p-6 text-center text-[#807D73]">
           <Lock className="h-8 w-8 mx-auto mb-3 opacity-40" />
           <p className="font-semibold">Admins can't enter picks</p>
@@ -272,7 +272,7 @@ export default function Picks() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="max-w-2xl lg:max-w-3xl mx-auto px-4 py-6">
       {/* Page header */}
       <div className="flex items-center justify-between mb-5">
         <div>

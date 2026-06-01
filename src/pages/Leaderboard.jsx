@@ -24,19 +24,19 @@ function PodiumCard({ p, rank, isMe }) {
       PODIUM_CARD[rank],
       PODIUM_H[rank],
     )}>
-      <span className={rank === 0 ? 'text-3xl' : 'text-2xl'}>{PODIUM_EMOJI[rank]}</span>
+      <span className={rank === 0 ? 'text-3xl sm:text-4xl' : 'text-2xl sm:text-3xl'}>{PODIUM_EMOJI[rank]}</span>
       <div>
-        <div className={cn('font-extrabold tabular-nums leading-none', rank === 0 ? 'text-3xl' : 'text-xl', PODIUM_PTS[rank])}>
+        <div className={cn('font-extrabold tabular-nums leading-none', rank === 0 ? 'text-3xl sm:text-4xl' : 'text-xl sm:text-2xl', PODIUM_PTS[rank])}>
           {p.pts}
         </div>
-        <div className="text-[10px] text-[#807D73] uppercase tracking-wider mt-0.5">pts</div>
+        <div className="text-[10px] sm:text-xs text-[#807D73] uppercase tracking-wider mt-0.5">pts</div>
       </div>
       <div className="w-full">
-        <div className="text-[11px] font-bold text-[#FFFDF2] truncate px-1">
+        <div className="text-[11px] sm:text-xs font-bold text-[#FFFDF2] truncate px-1">
           {p.name}
           {isMe && <span className="ml-1 text-[#FFD706]">·you</span>}
         </div>
-        <div className="text-[10px] text-[#807D73] mt-0.5">
+        <div className="text-[10px] sm:text-xs text-[#807D73] mt-0.5">
           {p.correct} right · {p.exact} exact
         </div>
       </div>
@@ -49,8 +49,8 @@ function StatCard({ icon: Icon, value, label }) {
   return (
     <div className="rounded-xl border border-[#32312D] bg-[#32312D]/20 p-3 text-center">
       <Icon className="h-3.5 w-3.5 text-[#807D73] mx-auto mb-1.5" />
-      <div className="text-base font-extrabold text-[#FFD706] tabular-nums leading-none truncate">{value}</div>
-      <div className="text-[10px] text-[#807D73] mt-1 uppercase tracking-wider">{label}</div>
+      <div className="text-base sm:text-xl font-extrabold text-[#FFD706] tabular-nums leading-none truncate">{value}</div>
+      <div className="text-[10px] sm:text-xs text-[#807D73] mt-1 uppercase tracking-wider">{label}</div>
     </div>
   )
 }
@@ -106,7 +106,7 @@ export default function Leaderboard() {
   const restOfList = ranked.length >= 3 ? ranked.slice(3) : []
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="max-w-2xl lg:max-w-3xl mx-auto px-4 py-6">
 
       {/* ── Page header ── */}
       <div className="mb-6">

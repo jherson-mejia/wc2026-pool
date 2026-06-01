@@ -68,8 +68,8 @@ export default function MatchCard({ match, pick = {}, result, onSave, disabled =
       <div className="grid grid-cols-[1fr_64px_1fr] items-center gap-1.5">
         {/* Home */}
         <div className="text-center">
-          <div className="text-3xl leading-none mb-1">{getFlag(match.home)}</div>
-          <div className="text-[10px] font-bold text-[#FFFDF2] leading-tight px-1 truncate">{match.home}</div>
+          <div className="text-3xl sm:text-4xl leading-none mb-1">{getFlag(match.home)}</div>
+          <div className="text-[10px] sm:text-xs font-bold text-[#FFFDF2] leading-tight px-1 truncate">{match.home}</div>
         </div>
 
         {/* Score */}
@@ -107,8 +107,8 @@ export default function MatchCard({ match, pick = {}, result, onSave, disabled =
 
         {/* Away */}
         <div className="text-center">
-          <div className="text-3xl leading-none mb-1">{getFlag(match.away)}</div>
-          <div className="text-[10px] font-bold text-[#FFFDF2] leading-tight px-1 truncate">{match.away}</div>
+          <div className="text-3xl sm:text-4xl leading-none mb-1">{getFlag(match.away)}</div>
+          <div className="text-[10px] sm:text-xs font-bold text-[#FFFDF2] leading-tight px-1 truncate">{match.away}</div>
         </div>
       </div>
 
