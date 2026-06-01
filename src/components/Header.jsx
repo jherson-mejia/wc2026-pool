@@ -5,8 +5,9 @@ import { useApp } from '@/context/AppContext'
 import { cn } from '@/lib/utils'
 
 const NAV = [
-  { to: '/leaderboard', label: 'Standings', emoji: '🏆' },
-  { to: '/picks',       label: 'My Picks',  emoji: '⚽' },
+  { to: '/leaderboard', label: 'Standings',  emoji: '🏆' },
+  { to: '/tournament',  label: 'Tournament', emoji: '🌍' },
+  { to: '/picks',       label: 'My Picks',   emoji: '⚽' },
 ]
 
 export default function Header() {

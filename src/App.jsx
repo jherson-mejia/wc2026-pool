@@ -7,6 +7,7 @@ import Login from '@/pages/Login'
 import Leaderboard from '@/pages/Leaderboard'
 import Picks from '@/pages/Picks'
 import Admin from '@/pages/Admin'
+import Tournament from '@/pages/Tournament'
 
 function AuthGate({ children }) {
   const { user, ready } = useApp()
@@ -33,6 +34,7 @@ export default function App() {
               <main>
                 <Routes>
                   <Route path="/leaderboard" element={<Leaderboard />} />
+                  <Route path="/tournament"  element={<Tournament />} />
                   <Route path="/picks"       element={<Picks />} />
                   <Route path="/admin"       element={<Admin />} />
                   <Route path="*"            element={<Navigate to="/leaderboard" replace />} />

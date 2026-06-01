@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { Users, Swords, BarChart3 } from 'lucide-react'
 import { useApp } from '@/context/AppContext'
 import Countdown from '@/components/Countdown'
-import TopScorers from '@/components/TopScorers'
 import { calcTotals } from '@/lib/scoring'
 import { GROUP_MATCHES, KO_ROUNDS } from '@/data/worldcup'
 import { cn } from '@/lib/utils'
@@ -239,13 +238,6 @@ export default function Leaderboard() {
           <p className="text-sm mt-1">Share the app link to get started!</p>
         </div>
       )}
-
-      {/* ── Scoring reference ── */}
-      {/* ── Top Scorers ── */}
-      <section className="mt-2">
-        <SectionDivider label="Top Scorers" />
-        <TopScorers />
-      </section>
 
       {ranked.length > 0 && (
         <section className="mt-6">
