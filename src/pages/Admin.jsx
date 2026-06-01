@@ -58,17 +58,17 @@ function ResultsTab() {
       <p className="text-sm text-[#807D73]">Enter the final score for each completed match. Scores update everyone's points instantly.</p>
 
       {/* Group / Round selector */}
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
         {groupTabs.map(id => (
           <button key={id} onClick={() => setGroup(id)}
-            className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${group === id ? 'bg-[#FFD706] text-[#0D0D0B]' : 'bg-[#32312D] text-[#807D73] hover:text-[#FFFDF2]'}`}>
+            className={`shrink-0 px-3 py-1 rounded-md text-xs font-semibold transition-colors ${group === id ? 'bg-[#FFD706] text-[#0D0D0B]' : 'bg-[#32312D] text-[#807D73] hover:text-[#FFFDF2]'}`}>
             Grp {id}
           </button>
         ))}
-        <div className="w-px bg-[#32312D] mx-1" />
+        <div className="shrink-0 w-px bg-[#32312D] mx-1" />
         {KO_ROUNDS.map(r => (
           <button key={r.id} onClick={() => setGroup(r.id)}
-            className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${group === r.id ? 'bg-[#FF8200] text-[#0D0D0B]' : 'bg-[#32312D] text-[#807D73] hover:text-[#FFFDF2]'}`}>
+            className={`shrink-0 px-3 py-1 rounded-md text-xs font-semibold transition-colors ${group === r.id ? 'bg-[#FF8200] text-[#0D0D0B]' : 'bg-[#32312D] text-[#807D73] hover:text-[#FFFDF2]'}`}>
             {r.name}
           </button>
         ))}
@@ -543,7 +543,7 @@ function SyncTab() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <Button onClick={doSyncSchedule} disabled={schedLoading || loading} variant="secondary">
               <RefreshCw className={`h-4 w-4 mr-2 ${schedLoading ? 'animate-spin' : ''}`} />
               {schedLoading ? 'Syncing…' : 'Sync Schedule'}
@@ -586,7 +586,7 @@ export default function Admin() {
         🔧 Admin Panel
       </h1>
       <Tabs defaultValue="results">
-        <TabsList className="w-full mb-5 flex-wrap h-auto">
+        <TabsList className="w-full mb-5 overflow-x-auto h-auto justify-start">
           <TabsTrigger value="results">Enter Results</TabsTrigger>
           <TabsTrigger value="knockout">Knockout Setup</TabsTrigger>
           <TabsTrigger value="sync">Auto-Sync</TabsTrigger>

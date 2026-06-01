@@ -103,3 +103,7 @@ input[type='number'] { -moz-appearance: textfield; }
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* Hide scrollbar while keeping scroll functionality */
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }

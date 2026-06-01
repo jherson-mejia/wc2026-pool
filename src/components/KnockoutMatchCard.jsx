@@ -4,13 +4,14 @@ import { Badge } from './ui/badge'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select'
 import { getFlag } from '@/data/worldcup'
 import { calcMatchPoints } from '@/lib/scoring'
-import { cn } from '@/lib/utils'
+import { cn, fmtKickoff } from '@/lib/utils'
 
 export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick = {}, result, onSave, disabled, kickoff = null }) {
   const homeRef = useRef(null)
   const awayRef = useRef(null)
   const timerRef = useRef(null)
 
+  const ki            = fmtKickoff(kickoff)
   const unlocked      = !!(km?.home && km?.away)
   const kickoffLocked = kickoff ? Date.now() >= new Date(kickoff).getTime() : false
   const locked        = !!result || disabled || kickoffLocked
@@ -58,22 +59,38 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
     )}>
       {/* Header */}
       <div className="flex items-center justify-between mb-3 text-xs text-[#807D73]">
-        <span className="font-medium">Match {matchNum}</span>
-        {result
-          ? <Badge variant="success">✓ {result.home}–{result.away}</Badge>
-          : kickoffLocked
-            ? <Badge variant="locked">🔒 Locked</Badge>
-            : hasPick
-              ? <Badge variant="pending">Picked</Badge>
-              : <Badge variant="tangerine">Open — pick now!</Badge>}
+        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+          <span className="font-medium shrink-0">Match {matchNum}</span>
+          {ki && (
+            ki.isLive ? (
+              <span className="flex items-center gap-1 text-[#FF8200] font-bold shrink-0">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#FF8200] animate-pulse" />
+                LIVE
+              </span>
+            ) : (
+              <span className={cn('shrink-0', ki.isToday ? 'text-[#FF8200] font-semibold' : '')}>
+                {ki.day} · {ki.time}
+              </span>
+            )
+          )}
+        </div>
+        <div className="shrink-0 ml-2">
+          {result
+            ? <Badge variant="success">✓ {result.home}–{result.away}</Badge>
+            : kickoffLocked
+              ? <Badge variant="locked">🔒 Locked</Badge>
+              : hasPick
+                ? <Badge variant="pending">Picked</Badge>
+                : <Badge variant="tangerine">Open — pick now!</Badge>}
+        </div>
       </div>
 
       {/* Teams + score */}
-      <div className="grid grid-cols-[1fr_80px_1fr] items-center gap-2">
+      <div className="grid grid-cols-[1fr_64px_1fr] items-center gap-1.5">
         {/* Home */}
         <div className="text-center">
-          <div className="text-4xl leading-none mb-1.5">{getFlag(km.home)}</div>
-          <div className="text-[11px] font-bold text-[#FFFDF2] leading-tight px-1 truncate">{km.home}</div>
+          <div className="text-3xl leading-none mb-1">{getFlag(km.home)}</div>
+          <div className="text-[10px] font-bold text-[#FFFDF2] leading-tight px-1 truncate">{km.home}</div>
         </div>
 
         {/* Score */}
@@ -106,8 +123,8 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
 
         {/* Away */}
         <div className="text-center">
-          <div className="text-4xl leading-none mb-1.5">{getFlag(km.away)}</div>
-          <div className="text-[11px] font-bold text-[#FFFDF2] leading-tight px-1 truncate">{km.away}</div>
+          <div className="text-3xl leading-none mb-1">{getFlag(km.away)}</div>
+          <div className="text-[10px] font-bold text-[#FFFDF2] leading-tight px-1 truncate">{km.away}</div>
         </div>
       </div>
 

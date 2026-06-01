@@ -7,15 +7,24 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import MatchCard from '@/components/MatchCard'
 import KnockoutMatchCard from '@/components/KnockoutMatchCard'
-import { cn } from '@/lib/utils'
+import HowItWorks from '@/components/HowItWorks'
+import { cn, fmtKickoff } from '@/lib/utils'
 import Countdown from '@/components/Countdown'
 import { calcTotals } from '@/lib/scoring'
 
 // ── Group accordion ───────────────────────────────────────────
 function GroupAccordion({ group, myPicks, results, kickoffs, onSave, isAdmin }) {
   const [open, setOpen] = useState(['A', 'B', 'C'].includes(group.id))
-  const matches = GROUP_MATCHES.filter(m => m.group === group.id)
+  const matches = GROUP_MATCHES
+    .filter(m => m.group === group.id)
+    .sort((a, b) => {
+      const ka = kickoffs[a.id] ? new Date(kickoffs[a.id]).getTime() : Infinity
+      const kb = kickoffs[b.id] ? new Date(kickoffs[b.id]).getTime() : Infinity
+      return ka - kb
+    })
   const done    = matches.filter(m => results[m.id]).length
+  const nextMatch = matches.find(m => kickoffs[m.id] && !results[m.id])
+  const nextKi    = nextMatch ? fmtKickoff(kickoffs[nextMatch.id]) : null
   const myPts   = matches.reduce((s, m) => {
     if (!results[m.id] || !myPicks[m.id]) return s
     const p = myPicks[m.id], r = results[m.id]
@@ -42,9 +51,20 @@ function GroupAccordion({ group, myPicks, results, kickoffs, onSave, isAdmin }) 
           </div>
           <div className="text-xs text-[#807D73] mt-0.5">{group.teams.join(' · ')}</div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {myPts > 0 && (
             <span className="text-xs font-bold text-[#FFD706]">+{myPts} pts</span>
+          )}
+          {nextKi && !open && (
+            <span className={cn(
+              'text-[10px] font-semibold px-1.5 py-0.5 rounded-full border',
+              nextKi.isLive    ? 'text-[#FF8200] border-[#FF8200]/30 bg-[#FF8200]/10' :
+              nextKi.isToday   ? 'text-[#FF8200] border-[#FF8200]/20 bg-[#FF8200]/5' :
+              nextKi.isTomorrow ? 'text-[#FFD706] border-[#FFD706]/20 bg-[#FFD706]/5' :
+                                  'text-[#807D73] border-[#32312D]',
+            )}>
+              {nextKi.isLive ? '🔴 Live' : nextKi.day}
+            </span>
           )}
           <span className="text-xs text-[#807D73]">{done}/6</span>
           <ChevronDown className={cn('h-4 w-4 text-[#807D73] transition-transform', open && 'rotate-180')} />
@@ -57,17 +77,35 @@ function GroupAccordion({ group, myPicks, results, kickoffs, onSave, isAdmin }) 
           <div className="h-1 rounded-full bg-[#32312D] overflow-hidden mb-3">
             <div className="h-full bg-[#FFD706] rounded-full transition-all" style={{ width: `${(done / 6) * 100}%` }} />
           </div>
-          {matches.map(m => (
-            <MatchCard
-              key={m.id}
-              match={m}
-              pick={myPicks[m.id]}
-              result={results[m.id]}
-              kickoff={kickoffs[m.id]}
-              onSave={onSave}
-              disabled={isAdmin}
-            />
-          ))}
+          {matches.map((m, idx) => {
+            const ki    = fmtKickoff(kickoffs[m.id])
+            const prevKi = idx > 0 ? fmtKickoff(kickoffs[matches[idx - 1].id]) : null
+            const showDateSep = ki && (!prevKi || ki.date.toDateString() !== prevKi.date.toDateString())
+            return (
+              <div key={m.id}>
+                {showDateSep && (
+                  <div className="flex items-center gap-2 pt-1 pb-0.5">
+                    <div className="flex-1 h-px bg-[#32312D]" />
+                    <span className={cn(
+                      'text-[10px] font-bold uppercase tracking-widest shrink-0',
+                      ki.isToday ? 'text-[#FF8200]' : ki.isTomorrow ? 'text-[#FFD706]' : 'text-[#807D73]',
+                    )}>
+                      {ki.day}
+                    </span>
+                    <div className="flex-1 h-px bg-[#32312D]" />
+                  </div>
+                )}
+                <MatchCard
+                  match={m}
+                  pick={myPicks[m.id]}
+                  result={results[m.id]}
+                  kickoff={kickoffs[m.id]}
+                  onSave={onSave}
+                  disabled={isAdmin}
+                />
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -154,21 +192,21 @@ function PicksProgress({ myPicks, results, participants, allPicks, user }) {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        <div className="rounded-lg bg-[#0D0D0B]/60 border border-[#32312D] p-3 text-center">
-          <Target className="h-3.5 w-3.5 text-[#807D73] mx-auto mb-1.5" />
-          <div className="text-2xl font-extrabold text-[#FFD706] tabular-nums leading-none">{pts}</div>
-          <div className="text-[10px] text-[#807D73] uppercase tracking-wider mt-1">Points</div>
+      <div className="grid grid-cols-3 gap-1.5 mb-4">
+        <div className="rounded-lg bg-[#0D0D0B]/60 border border-[#32312D] p-2.5 text-center">
+          <Target className="h-3 w-3 text-[#807D73] mx-auto mb-1" />
+          <div className="text-xl font-extrabold text-[#FFD706] tabular-nums leading-none">{pts}</div>
+          <div className="text-[9px] text-[#807D73] uppercase tracking-wider mt-1">Points</div>
         </div>
-        <div className="rounded-lg bg-[#0D0D0B]/60 border border-[#32312D] p-3 text-center">
-          <CheckCircle2 className="h-3.5 w-3.5 text-[#807D73] mx-auto mb-1.5" />
-          <div className="text-2xl font-extrabold text-[#FFFDF2] tabular-nums leading-none">{correct}</div>
-          <div className="text-[10px] text-[#807D73] uppercase tracking-wider mt-1">Correct</div>
+        <div className="rounded-lg bg-[#0D0D0B]/60 border border-[#32312D] p-2.5 text-center">
+          <CheckCircle2 className="h-3 w-3 text-[#807D73] mx-auto mb-1" />
+          <div className="text-xl font-extrabold text-[#FFFDF2] tabular-nums leading-none">{correct}</div>
+          <div className="text-[9px] text-[#807D73] uppercase tracking-wider mt-1">Correct</div>
         </div>
-        <div className="rounded-lg bg-[#0D0D0B]/60 border border-[#32312D] p-3 text-center">
-          <Zap className="h-3.5 w-3.5 text-[#807D73] mx-auto mb-1.5" />
-          <div className="text-2xl font-extrabold text-[#FFFDF2] tabular-nums leading-none">{exact}</div>
-          <div className="text-[10px] text-[#807D73] uppercase tracking-wider mt-1">Exact</div>
+        <div className="rounded-lg bg-[#0D0D0B]/60 border border-[#32312D] p-2.5 text-center">
+          <Zap className="h-3 w-3 text-[#807D73] mx-auto mb-1" />
+          <div className="text-xl font-extrabold text-[#FFFDF2] tabular-nums leading-none">{exact}</div>
+          <div className="text-[9px] text-[#807D73] uppercase tracking-wider mt-1">Exact</div>
         </div>
       </div>
 
@@ -258,8 +296,10 @@ export default function Picks() {
 
       <Countdown />
 
+      <HowItWorks />
+
       <Tabs defaultValue="group">
-        <TabsList className="w-full mb-4 flex-wrap h-auto gap-1">
+        <TabsList className="w-full mb-4 overflow-x-auto h-auto gap-1 justify-start">
           <TabsTrigger value="group">Group Stage</TabsTrigger>
           <TabsTrigger value="r32">R32</TabsTrigger>
           <TabsTrigger value="r16">R16</TabsTrigger>

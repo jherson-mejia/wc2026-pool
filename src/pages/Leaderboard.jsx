@@ -20,7 +20,7 @@ function PodiumCard({ p, rank, isMe }) {
   if (!p) return <div className="flex-1" />
   return (
     <div className={cn(
-      'flex-1 rounded-xl border flex flex-col items-center justify-between p-3 text-center transition-all',
+      'flex-1 min-w-0 rounded-xl border flex flex-col items-center justify-between p-2 sm:p-3 text-center transition-all',
       PODIUM_CARD[rank],
       PODIUM_H[rank],
     )}>
@@ -47,10 +47,10 @@ function PodiumCard({ p, rank, isMe }) {
 // ── Stat card ─────────────────────────────────────────────────
 function StatCard({ icon: Icon, value, label }) {
   return (
-    <div className="rounded-xl border border-[#32312D] bg-[#32312D]/20 p-4 text-center">
-      <Icon className="h-4 w-4 text-[#807D73] mx-auto mb-2" />
-      <div className="text-xl font-extrabold text-[#FFD706] tabular-nums leading-none">{value}</div>
-      <div className="text-[11px] text-[#807D73] mt-1.5 uppercase tracking-wider">{label}</div>
+    <div className="rounded-xl border border-[#32312D] bg-[#32312D]/20 p-3 text-center">
+      <Icon className="h-3.5 w-3.5 text-[#807D73] mx-auto mb-1.5" />
+      <div className="text-base font-extrabold text-[#FFD706] tabular-nums leading-none truncate">{value}</div>
+      <div className="text-[10px] text-[#807D73] mt-1 uppercase tracking-wider">{label}</div>
     </div>
   )
 }
@@ -115,7 +115,7 @@ export default function Leaderboard() {
       </div>
 
       {/* ── Tournament stats ── */}
-      <section className="grid grid-cols-3 gap-3 mb-5">
+      <section className="grid grid-cols-3 gap-2 mb-5">
         <StatCard icon={Swords}    value={`${played}/${totalMatches}`} label="Played" />
         <StatCard icon={Users}     value={ranked.length}               label="Players" />
         <StatCard icon={BarChart3} value={stage}                       label="Stage" />

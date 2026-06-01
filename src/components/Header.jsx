@@ -48,8 +48,8 @@ export default function Header() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="hidden sm:flex items-center gap-1.5 text-xs text-[#CCC9B8] bg-[#32312D]/60 border border-[#32312D] px-3 py-1.5 rounded-full">
-            {isAdmin ? '🔧' : '⚽'} {isAdmin ? 'Admin' : user?.name}
+          <span className="flex items-center gap-1 text-xs text-[#CCC9B8] bg-[#32312D]/60 border border-[#32312D] px-2.5 py-1.5 rounded-full max-w-[120px] sm:max-w-none truncate">
+            {isAdmin ? '🔧' : '⚽'} <span className="truncate">{isAdmin ? 'Admin' : user?.name}</span>
           </span>
           <button
             onClick={logout}

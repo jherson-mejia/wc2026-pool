@@ -2,13 +2,14 @@ import { useRef } from 'react'
 import { Badge } from './ui/badge'
 import { getFlag, GROUP_SCORING } from '@/data/worldcup'
 import { calcMatchPoints } from '@/lib/scoring'
-import { cn } from '@/lib/utils'
+import { cn, fmtKickoff } from '@/lib/utils'
 
 export default function MatchCard({ match, pick = {}, result, onSave, disabled = false, kickoff = null }) {
   const homeRef = useRef(null)
   const awayRef = useRef(null)
   const timerRef = useRef(null)
 
+  const ki           = fmtKickoff(kickoff)
   const kickoffLocked = kickoff ? Date.now() >= new Date(kickoff).getTime() : false
   const locked    = !!result || disabled || kickoffLocked
   const hasPick   = pick.home != null && pick.away != null
@@ -27,32 +28,48 @@ export default function MatchCard({ match, pick = {}, result, onSave, disabled =
 
   const scoreColor = isExact ? 'text-[#FFD706]' : isCorrect ? 'text-[#22c55e]' : 'text-[#807D73]'
 
+  const borderClass = isExact   ? 'border-[#FFD706]/40 bg-[#FFD706]/5'
+    : isCorrect ? 'border-[#22c55e]/30 bg-[#22c55e]/5'
+    : ki?.isToday && !result ? 'border-[#FF8200]/40 bg-[#FF8200]/5'
+    : locked    ? 'border-[#32312D] bg-[#0D0D0B]/60'
+    :             'border-[#32312D] bg-[#0D0D0B]/60 hover:border-[#807D73]'
+
   return (
-    <div className={cn(
-      'rounded-xl border p-4 transition-all',
-      isExact   ? 'border-[#FFD706]/40 bg-[#FFD706]/5' :
-      isCorrect ? 'border-[#22c55e]/30 bg-[#22c55e]/5' :
-      locked    ? 'border-[#32312D] bg-[#0D0D0B]/60' :
-                  'border-[#32312D] bg-[#0D0D0B]/60 hover:border-[#807D73]',
-    )}>
+    <div className={cn('rounded-xl border p-4 transition-all', borderClass)}>
       {/* Header */}
       <div className="flex items-center justify-between mb-3 text-xs text-[#807D73]">
-        <span className="font-medium">MD{match.matchday}{match.simultaneous ? ' · sim' : ''}</span>
-        {result
-          ? <Badge variant="success">✓ {result.home}–{result.away}</Badge>
-          : kickoffLocked
-            ? <Badge variant="locked">🔒 Locked</Badge>
-            : hasPick
-              ? <Badge variant="pending">Picked</Badge>
-              : <Badge variant="locked">—</Badge>}
+        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+          <span className="font-medium shrink-0">MD{match.matchday}</span>
+          {ki && (
+            ki.isLive ? (
+              <span className="flex items-center gap-1 text-[#FF8200] font-bold shrink-0">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#FF8200] animate-pulse" />
+                LIVE
+              </span>
+            ) : (
+              <span className={cn('shrink-0', ki.isToday ? 'text-[#FF8200] font-semibold' : '')}>
+                {ki.day} · {ki.time}
+              </span>
+            )
+          )}
+        </div>
+        <div className="shrink-0 ml-2">
+          {result
+            ? <Badge variant="success">✓ {result.home}–{result.away}</Badge>
+            : kickoffLocked
+              ? <Badge variant="locked">🔒 Locked</Badge>
+              : hasPick
+                ? <Badge variant="pending">Picked</Badge>
+                : <Badge variant="locked">—</Badge>}
+        </div>
       </div>
 
       {/* Teams + score */}
-      <div className="grid grid-cols-[1fr_80px_1fr] items-center gap-2">
+      <div className="grid grid-cols-[1fr_64px_1fr] items-center gap-1.5">
         {/* Home */}
         <div className="text-center">
-          <div className="text-4xl leading-none mb-1.5">{getFlag(match.home)}</div>
-          <div className="text-[11px] font-bold text-[#FFFDF2] leading-tight px-1 truncate">{match.home}</div>
+          <div className="text-3xl leading-none mb-1">{getFlag(match.home)}</div>
+          <div className="text-[10px] font-bold text-[#FFFDF2] leading-tight px-1 truncate">{match.home}</div>
         </div>
 
         {/* Score */}
@@ -80,13 +97,18 @@ export default function MatchCard({ match, pick = {}, result, onSave, disabled =
               </>
             )}
           </div>
-          {!locked && <div className="text-[10px] text-[#807D73]">vs</div>}
+          {!locked && ki && !ki.isLive && (
+            <div className="text-[10px] text-[#807D73]">
+              {ki.isToday && ki.hoursUntil > 0 ? `in ${ki.hoursUntil}h` : 'vs'}
+            </div>
+          )}
+          {!locked && (!ki || ki.isLive) && <div className="text-[10px] text-[#807D73]">vs</div>}
         </div>
 
         {/* Away */}
         <div className="text-center">
-          <div className="text-4xl leading-none mb-1.5">{getFlag(match.away)}</div>
-          <div className="text-[11px] font-bold text-[#FFFDF2] leading-tight px-1 truncate">{match.away}</div>
+          <div className="text-3xl leading-none mb-1">{getFlag(match.away)}</div>
+          <div className="text-[10px] font-bold text-[#FFFDF2] leading-tight px-1 truncate">{match.away}</div>
         </div>
       </div>
 
