@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Recurly brand theme (dark mode by default) ── */
+@layer base {
+  :root {
+    /* shadcn/ui variables mapped to Recurly palette */
+    --background:    20 10% 4%;      /* #0D0D0B off-black */
+    --foreground:    60 100% 97%;    /* #FFFDF2 off-white */
+
+    --card:          30 7% 19%;      /* #32312D dark-gray */
+    --card-foreground: 60 100% 97%;
+
+    --popover:       30 7% 19%;
+    --popover-foreground: 60 100% 97%;
+
+    --primary:       51 100% 52%;    /* #FFD706 yellow */
+    --primary-foreground: 20 10% 4%; /* off-black on yellow */
+
+    --secondary:     30 7% 19%;      /* dark-gray */
+    --secondary-foreground: 60 100% 97%;
+
+    --muted:         30 5% 25%;
+    --muted-foreground: 40 10% 55%; /* gray */
+
+    --accent:        51 100% 52%;    /* yellow */
+    --accent-foreground: 20 10% 4%;
+
+    --destructive:   10 100% 53%;    /* vermillion */
+    --destructive-foreground: 60 100% 97%;
+
+    --border:        30 7% 25%;
+    --input:         30 7% 22%;
+    --ring:          51 100% 52%;    /* yellow focus ring */
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background-color: #0D0D0B;
+    color: #FFFDF2;
+  }
+  h1, h2, h3, h4, h5, h6 { font-family: 'Plus Jakarta Sans', sans-serif; }
+}
+
+/* ── Number input — hide spinners ── */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; }
+input[type='number'] { -moz-appearance: textfield; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0D0D0B; }
+::-webkit-scrollbar-thumb { background: #32312D; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #807D73; }
+
+/* ── Score input ── */
+.score-input {
+  @apply w-12 h-10 text-center text-lg font-bold rounded-md border border-border bg-[#32312D] text-[#FFFDF2] focus:outline-none focus:border-[#FFD706] focus:ring-1 focus:ring-[#FFD706] transition-colors;
+}
+
+/* ── Animations ── */
+@keyframes pulse-badge {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+.animate-pulse-badge { animation: pulse-badge 1.5s ease-in-out infinite; }
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up { animation: slide-up 0.45s ease-out forwards; }
+
+/* Staggered list entrance */
+.stagger-children > * {
+  opacity: 0;
+  animation: slide-up 0.35s ease-out forwards;
+}
+.stagger-children > *:nth-child(1)  { animation-delay: 0.03s; }
+.stagger-children > *:nth-child(2)  { animation-delay: 0.07s; }
+.stagger-children > *:nth-child(3)  { animation-delay: 0.11s; }
+.stagger-children > *:nth-child(4)  { animation-delay: 0.15s; }
+.stagger-children > *:nth-child(5)  { animation-delay: 0.19s; }
+.stagger-children > *:nth-child(6)  { animation-delay: 0.23s; }
+.stagger-children > *:nth-child(7)  { animation-delay: 0.26s; }
+.stagger-children > *:nth-child(8)  { animation-delay: 0.29s; }
+.stagger-children > *:nth-child(n+9) { animation-delay: 0.32s; }
+
+/* Yellow glow */
+.glow-yellow { box-shadow: 0 0 24px rgba(255,215,6,0.25), 0 0 48px rgba(255,215,6,0.08); }
+.glow-yellow-sm { box-shadow: 0 0 16px rgba(255,215,6,0.2); }
+
+/* Gradient text */
+.text-gradient {
+  background: linear-gradient(90deg, #FFD706 0%, #FF8200 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
