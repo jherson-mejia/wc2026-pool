@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useApp } from '@/context/AppContext'
 import { useToast } from '@/components/ui/toast'
 import { GROUPS, GROUP_MATCHES, KO_ROUNDS } from '@/data/worldcup'
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import { calcTotals } from '@/lib/scoring'
 import { fetchFinishedMatches, mapToPoolResults, fetchSchedule, mapKickoffs } from '@/lib/autoSync'
-import { Download, Trash2, CheckCircle, Users, RefreshCw, Pencil, ChevronDown, X, Check } from 'lucide-react'
+import { Download, Trash2, CheckCircle, Users, RefreshCw, Pencil, ChevronDown, X, Check, Clock, Zap } from 'lucide-react'
 
 // ── Enter Results ─────────────────────────────────────────────
 function ResultsTab() {
@@ -475,6 +475,107 @@ Winner pick used as tiebreaker if tied after 90min.`
   )
 }
 
+// ── Scheduler Status Card ─────────────────────────────────────
+function SchedulerStatus() {
+  const [status, setStatus] = useState(null)
+  const [forceLoading, setForceLoading] = useState(false)
+  const { toast } = useToast()
+
+  async function fetchStatus() {
+    try {
+      const { LS } = await import('@/lib/storage')
+      const pw = LS.get('adminPw')
+      const res = await fetch('/api/scheduler-status', {
+        headers: pw ? { 'X-Admin-Password': pw } : {},
+      })
+      if (res.ok) setStatus(await res.json())
+    } catch {}
+  }
+
+  async function forceSync() {
+    setForceLoading(true)
+    try {
+      const { LS } = await import('@/lib/storage')
+      const pw = LS.get('adminPw')
+      const res = await fetch('/api/scheduler-force', {
+        method: 'POST',
+        headers: pw ? { 'X-Admin-Password': pw } : {},
+      })
+      if (res.ok) {
+        toast({ title: 'Manual sync triggered ✓' })
+        setTimeout(fetchStatus, 1500)
+      } else {
+        toast({ title: 'Sync failed', variant: 'destructive' })
+      }
+    } catch (e) {
+      toast({ title: e.message, variant: 'destructive' })
+    } finally { setForceLoading(false) }
+  }
+
+  useEffect(() => {
+    fetchStatus()
+    const id = setInterval(fetchStatus, 30_000)
+    return () => clearInterval(id)
+  }, [])
+
+  if (!status) return null
+
+  const usedPct  = Math.round((status.requestsToday / status.autoBudget) * 100)
+  const nextFmt  = status.nextSync
+    ? new Date(status.nextSync).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    : null
+  const lastFmt  = status.lastSync
+    ? new Date(status.lastSync).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    : null
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2"><Zap className="h-4 w-4 text-[#FFD706]" /> Auto-Scheduler</span>
+          <Button size="sm" variant="secondary" onClick={forceSync} disabled={forceLoading}
+            className="text-xs h-7 px-2">
+            <RefreshCw className={`h-3 w-3 mr-1 ${forceLoading ? 'animate-spin' : ''}`} />
+            Force sync
+          </Button>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* Budget bar */}
+        <div>
+          <div className="flex justify-between text-xs text-[#807D73] mb-1">
+            <span>Daily budget used</span>
+            <span className="font-semibold text-[#FFFDF2]">{status.requestsToday} / {status.autoBudget} auto</span>
+          </div>
+          <div className="h-2 rounded-full bg-[#32312D] overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${Math.min(usedPct, 100)}%`,
+                background: usedPct >= 90 ? '#FF4444' : usedPct >= 60 ? '#FF8200' : '#FFD706',
+              }}
+            />
+          </div>
+          <p className="text-[10px] text-[#807D73] mt-1">{status.remaining} auto-requests remaining · {status.reserved} reserved for manual</p>
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="bg-[#0D0D0B]/60 rounded-lg border border-[#32312D] p-2">
+            <div className="text-[#807D73] mb-0.5 flex items-center gap-1"><Clock className="h-3 w-3" /> Next poll</div>
+            <div className="font-semibold text-[#FFFDF2]">{nextFmt ?? '—'}</div>
+            {status.pollsPlanned > 0 && <div className="text-[10px] text-[#807D73]">{status.pollsPlanned} scheduled today</div>}
+          </div>
+          <div className="bg-[#0D0D0B]/60 rounded-lg border border-[#32312D] p-2">
+            <div className="text-[#807D73] mb-0.5">Last sync</div>
+            <div className="font-semibold text-[#FFFDF2]">{lastFmt ?? 'Never'}</div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 // ── Auto-Sync ─────────────────────────────────────────────────
 function SyncTab() {
   const { results, koMatches, saveResult, saveKickoffs, kickoffs } = useApp()
@@ -529,10 +630,12 @@ function SyncTab() {
 
   return (
     <div className="space-y-4">
+      <SchedulerStatus />
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" /> Auto-Sync from football-data.org
+            <RefreshCw className="h-4 w-4" /> Manual Sync from football-data.org
           </CardTitle>
           <CardDescription className="text-xs">
             API key lives in the server <code className="bg-[#32312D] px-1 rounded">.env</code> — nothing sent to the browser.

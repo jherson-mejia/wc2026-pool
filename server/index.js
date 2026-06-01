@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 import { existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { startScheduler } from './scheduler.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -296,6 +297,20 @@ app.use('/api/football-data', async (req, res) => {
   }
 })
 
+// ── Scheduler status ──────────────────────────────────────────
+app.get('/api/scheduler-status', adminOnly, (_req, res) => {
+  res.json(scheduler?.status() ?? {
+    requestsToday: 0, autoBudget: 80, dailyBudget: 100,
+    reserved: 20, remaining: 80, lastSync: null, nextSync: null, pollsPlanned: 0,
+  })
+})
+
+app.post('/api/scheduler-force', adminOnly, async (_req, res) => {
+  if (!scheduler) return res.status(503).json({ error: 'Scheduler not running (FD_API_KEY not set)' })
+  await scheduler.forceSync()
+  res.json(scheduler.status())
+})
+
 // ── Serve built frontend in production ───────────────────────
 const distDir = join(__dirname, '..', 'dist')
 if (existsSync(distDir)) {
@@ -306,6 +321,11 @@ if (existsSync(distDir)) {
 
 const PORT = process.env.PORT || 4000
 const server = app.listen(PORT, () => console.log(`⚽ Pool server on http://localhost:${PORT}`))
+
+let scheduler = null
+server.once('listening', () => {
+  scheduler = startScheduler({ supabase, broadcast, apiKey: process.env.FD_API_KEY })
+})
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
