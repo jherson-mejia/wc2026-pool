@@ -3,6 +3,11 @@ import express from 'express'
 import cors from 'cors'
 import { Readable } from 'node:stream'
 import { createClient } from '@supabase/supabase-js'
+import { existsSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // Register crash handlers immediately so nothing slips through
 process.on('uncaughtException', (err) => {
@@ -252,6 +257,14 @@ app.use('/api/football-data', async (req, res) => {
     }
   }
 })
+
+// ── Serve built frontend in production ───────────────────────
+const distDir = join(__dirname, '..', 'dist')
+if (existsSync(distDir)) {
+  app.use(express.static(distDir))
+  app.get('*', (_req, res) => res.sendFile(join(distDir, 'index.html')))
+  console.log('📦 Serving production build from dist/')
+}
 
 const PORT = process.env.PORT || 4000
 const server = app.listen(PORT, () => console.log(`⚽ Pool server on http://localhost:${PORT}`))
