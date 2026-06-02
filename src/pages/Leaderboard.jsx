@@ -109,7 +109,7 @@ export default function Leaderboard() {
   const restOfList = ranked.length >= 3 ? ranked.slice(3) : []
 
   return (
-    <div className="max-w-2xl lg:max-w-4xl mx-auto px-4 py-6">
+    <div className="max-w-2xl lg:max-w-3xl mx-auto px-4 py-6">
 
       {/* ── Page header ── */}
       <div className="mb-6">
