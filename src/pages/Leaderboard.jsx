@@ -7,7 +7,7 @@ import { GROUP_MATCHES, KO_ROUNDS } from '@/data/worldcup'
 import { cn } from '@/lib/utils'
 
 // ── Podium card (top 3 visual) ────────────────────────────────
-const PODIUM_H     = ['h-44', 'h-32', 'h-28']
+const PODIUM_H     = ['h-44 sm:h-52 lg:h-64', 'h-32 sm:h-40 lg:h-52', 'h-28 sm:h-36 lg:h-44']
 const PODIUM_EMOJI = ['🥇', '🥈', '🥉']
 const PODIUM_PTS   = ['text-[#FFD706]', 'text-[#C0C0C0]', 'text-[#CD7F32]']
 const PODIUM_CARD  = [
@@ -20,23 +20,26 @@ function PodiumCard({ p, rank, isMe }) {
   if (!p) return <div className="flex-1" />
   return (
     <div className={cn(
-      'flex-1 min-w-0 rounded-xl border flex flex-col items-center justify-between p-2 sm:p-3 text-center transition-all',
+      'flex-1 min-w-0 rounded-xl border flex flex-col items-center justify-between p-2 sm:p-4 lg:p-6 text-center transition-all',
       PODIUM_CARD[rank],
       PODIUM_H[rank],
     )}>
-      <span className={rank === 0 ? 'text-3xl sm:text-4xl' : 'text-2xl sm:text-3xl'}>{PODIUM_EMOJI[rank]}</span>
+      <span className={rank === 0 ? 'text-3xl sm:text-4xl lg:text-5xl' : 'text-2xl sm:text-3xl lg:text-4xl'}>{PODIUM_EMOJI[rank]}</span>
       <div>
-        <div className={cn('font-extrabold tabular-nums leading-none', rank === 0 ? 'text-3xl sm:text-4xl' : 'text-xl sm:text-2xl', PODIUM_PTS[rank])}>
+        <div className={cn('font-extrabold tabular-nums leading-none',
+          rank === 0 ? 'text-3xl sm:text-4xl lg:text-5xl' : 'text-xl sm:text-2xl lg:text-3xl',
+          PODIUM_PTS[rank],
+        )}>
           {p.pts}
         </div>
-        <div className="text-[10px] sm:text-xs text-[#807D73] uppercase tracking-wider mt-0.5">pts</div>
+        <div className="text-[10px] sm:text-xs lg:text-sm text-[#807D73] uppercase tracking-wider mt-0.5">pts</div>
       </div>
       <div className="w-full">
-        <div className="text-[11px] sm:text-xs font-bold text-[#FFFDF2] truncate px-1">
+        <div className="text-[11px] sm:text-xs lg:text-sm font-bold text-[#FFFDF2] truncate px-1">
           {p.name}
           {isMe && <span className="ml-1 text-[#FFD706]">·you</span>}
         </div>
-        <div className="text-[10px] sm:text-xs text-[#807D73] mt-0.5">
+        <div className="text-[10px] sm:text-xs lg:text-xs text-[#807D73] mt-0.5">
           {p.correct} right · {p.exact} exact
         </div>
       </div>
@@ -106,7 +109,7 @@ export default function Leaderboard() {
   const restOfList = ranked.length >= 3 ? ranked.slice(3) : []
 
   return (
-    <div className="max-w-2xl lg:max-w-3xl mx-auto px-4 py-6">
+    <div className="max-w-2xl lg:max-w-4xl mx-auto px-4 py-6">
 
       {/* ── Page header ── */}
       <div className="mb-6">
@@ -171,7 +174,7 @@ export default function Leaderboard() {
       {restOfList.length > 0 && (
         <section>
           <SectionDivider label="All rankings" />
-          <div className="space-y-1.5 stagger-children">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5 stagger-children">
             {restOfList.map((p, idx) => {
               const i = idx + 3
               const isMe = p.email === user?.email

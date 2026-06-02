@@ -3,6 +3,8 @@
 @tailwind utilities;
 
 /* ── Recurly brand theme (dark mode by default) ── */
+html { font-size: 106%; }
+
 @layer base {
   :root {
     /* shadcn/ui variables mapped to Recurly palette */
@@ -62,6 +64,10 @@ input[type='number'] { -moz-appearance: textfield; }
 /* ── Score input ── */
 .score-input {
   @apply w-12 h-10 text-center text-lg font-bold rounded-md border border-border bg-[#32312D] text-[#FFFDF2] focus:outline-none focus:border-[#FFD706] focus:ring-1 focus:ring-[#FFD706] transition-colors;
+}
+
+.score-input-sm {
+  @apply w-8 h-7 text-center text-sm font-bold rounded border border-[#32312D] bg-[#1a1a17] text-[#FFFDF2] focus:outline-none focus:border-[#FFD706] focus:ring-1 focus:ring-[#FFD706] transition-colors;
 }
 
 /* ── Animations ── */

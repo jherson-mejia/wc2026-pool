@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Target, RefreshCw } from 'lucide-react'
 import { getFlag } from '@/data/worldcup'
+import { cachedFetch } from '@/lib/apiCache'
 import { cn } from '@/lib/utils'
 
 const TEAM_NAME_MAP = {
@@ -33,9 +34,11 @@ export default function TopScorers() {
     setLoading(true)
     setError(null)
     try {
-      const res  = await fetch(`/api/football-data/competitions/WC/scorers?season=2026&limit=${LIMIT}`)
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || `API ${res.status}`)
+      const json = await cachedFetch(
+        'scorers-2026',
+        `/api/football-data/competitions/WC/scorers?season=2026&limit=${LIMIT}`,
+        30 * 60 * 1000,
+      )
       setScorers(json.scorers ?? [])
     } catch (e) {
       setError(e.message)

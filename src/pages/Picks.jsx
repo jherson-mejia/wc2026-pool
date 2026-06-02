@@ -1,11 +1,10 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { ChevronDown, Download, Lock, Target, CheckCircle2, Zap } from 'lucide-react'
 import { useApp } from '@/context/AppContext'
 import { useToast } from '@/components/ui/toast'
-import { GROUP_MATCHES, KO_ROUNDS } from '@/data/worldcup'
+import { GROUP_MATCHES, KO_ROUNDS, getFlag } from '@/data/worldcup'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import MatchCard from '@/components/MatchCard'
 import KnockoutMatchCard from '@/components/KnockoutMatchCard'
 import HowItWorks from '@/components/HowItWorks'
 import { cn } from '@/lib/utils'
@@ -35,13 +34,111 @@ function TickingCountdown({ kickoff }) {
   )
 }
 
+// ── Compact pick row (schedule-tab style with inline score input) ─
+function PickRow({ match, pick = {}, result, kickoff, onSave, isNext }) {
+  const homeRef  = useRef(null)
+  const awayRef  = useRef(null)
+  const timerRef = useRef(null)
+
+  const kickoffLocked = kickoff ? Date.now() >= new Date(kickoff).getTime() : false
+  const locked   = !!result || kickoffLocked
+  const hasPick  = pick?.home != null && pick?.away != null
+  const pts      = result ? calcMatchPoints(pick, result, 'group') : null
+  const isExact  = pts != null && pts >= 3
+  const isCorrect = pts != null && pts >= 1
+
+  function queue() {
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      const h = parseInt(homeRef.current?.value)
+      const a = parseInt(awayRef.current?.value)
+      if (!isNaN(h) && !isNaN(a)) onSave?.(match.id, h, a, null)
+    }, 700)
+  }
+
+  const scoreColor = isExact ? 'text-[#FFD706] font-bold' : isCorrect ? 'text-[#22c55e] font-semibold' : 'text-[#807D73]'
+  const borderCls  = isExact   ? 'border-[#FFD706]/40 bg-[#FFD706]/5'
+    : isCorrect  ? 'border-[#22c55e]/30 bg-[#22c55e]/5'
+    : isNext     ? 'border-[#FFD706]/60 bg-[#FFD706]/5'
+    :              'border-[#32312D] bg-[#32312D]/20'
+
+  const time = kickoff
+    ? new Date(kickoff).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    : '–'
+
+  return (
+    <div className={cn('flex items-center gap-2 rounded-xl border px-3 py-2.5 transition-all', borderCls)}>
+      {/* Time */}
+      <div className="text-[11px] text-[#807D73] shrink-0 w-14 tabular-nums">{time}</div>
+
+      {/* Home */}
+      <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
+        <span className="text-xs font-semibold text-[#FFFDF2] truncate text-right">{match.home}</span>
+        <span className="text-base leading-none shrink-0">{getFlag(match.home)}</span>
+      </div>
+
+      {/* Score */}
+      <div className="flex items-center gap-1 shrink-0">
+        {locked ? (
+          <>
+            <span className={cn('w-8 h-7 flex items-center justify-center text-sm tabular-nums', scoreColor)}>
+              {hasPick ? pick.home : '–'}
+            </span>
+            <span className="text-[#807D73] text-xs font-bold">–</span>
+            <span className={cn('w-8 h-7 flex items-center justify-center text-sm tabular-nums', scoreColor)}>
+              {hasPick ? pick.away : '–'}
+            </span>
+          </>
+        ) : (
+          <>
+            <input ref={homeRef} type="number" min="0" max="99"
+              defaultValue={hasPick ? pick.home : ''} placeholder="0"
+              className="score-input-sm" onChange={queue} />
+            <span className="text-[#807D73] text-xs font-bold">–</span>
+            <input ref={awayRef} type="number" min="0" max="99"
+              defaultValue={hasPick ? pick.away : ''} placeholder="0"
+              className="score-input-sm" onChange={queue} />
+          </>
+        )}
+      </div>
+
+      {/* Away */}
+      <div className="flex items-center gap-1.5 flex-1 justify-start min-w-0">
+        <span className="text-base leading-none shrink-0">{getFlag(match.away)}</span>
+        <span className="text-xs font-semibold text-[#FFFDF2] truncate">{match.away}</span>
+      </div>
+
+      {/* Right: pts earned or group badge */}
+      <div className="shrink-0 min-w-[2rem] text-right">
+        {pts != null ? (
+          <span className={cn('text-xs font-bold tabular-nums', isExact ? 'text-[#FFD706]' : isCorrect ? 'text-[#22c55e]' : 'text-[#807D73]')}>
+            {pts > 0 ? `+${pts}` : '0'}
+          </span>
+        ) : (
+          <span className="text-[10px] text-[#807D73]">{`G${match.group}`}</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Single match-day section ──────────────────────────────────
-function DaySection({ dateKey, label, sublabel, isToday, allPast, hasNext, matches, myPicks, results, kickoffs, onSave, nextMatchId }) {
+function DaySection({ label, sublabel, isToday, allPast, hasNext, matches, myPicks, results, kickoffs, onSave, nextMatchId }) {
   const [open, setOpen] = useState(isToday || hasNext)
 
-  const done  = matches.filter(m => results[m.id]).length
-  const myPts = matches.reduce((s, m) =>
+  // Only show: picked matches OR upcoming (not yet locked) matches
+  const visibleMatches = matches.filter(m => {
+    const ko     = kickoffs[m.id]
+    const locked = !!results[m.id] || (ko && Date.now() >= new Date(ko).getTime())
+    const hasPick = myPicks[m.id]?.home != null
+    return !locked || hasPick
+  })
+
+  const done  = visibleMatches.filter(m => results[m.id]).length
+  const myPts = visibleMatches.reduce((s, m) =>
     s + calcMatchPoints(myPicks[m.id], results[m.id], 'group'), 0)
+
+  if (visibleMatches.length === 0) return null
 
   return (
     <div className={cn(
@@ -70,36 +167,31 @@ function DaySection({ dateKey, label, sublabel, isToday, allPast, hasNext, match
               </span>
             )}
           </div>
-          <div className="text-xs text-[#807D73] mt-0.5">{sublabel} · {matches.length} matches</div>
+          <div className="text-xs text-[#807D73] mt-0.5">{sublabel} · {visibleMatches.length} matches</div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {myPts > 0 && <span className="text-xs font-bold text-[#FFD706]">+{myPts} pts</span>}
-          <span className="text-xs text-[#807D73]">{done}/{matches.length}</span>
+          {results && done > 0 && <span className="text-xs text-[#807D73]">{done}/{visibleMatches.length}</span>}
           <ChevronDown className={cn('h-4 w-4 text-[#807D73] transition-transform', open && 'rotate-180')} />
         </div>
       </button>
 
       {open && (
-        <div className="p-3 space-y-2 bg-[#0D0D0B]/40">
-          {matches.map(m => {
-            const ko        = kickoffs[m.id]
-            const matchPast = ko && Date.now() >= new Date(ko).getTime()
-            const isNext    = m.id === nextMatchId
-            return (
-              <div key={m.id} className={cn('transition-all', matchPast && !isNext && 'opacity-55')}>
-                {isNext && ko && <TickingCountdown kickoff={ko} />}
-                <MatchCard
-                  match={m}
-                  pick={myPicks[m.id]}
-                  result={results[m.id]}
-                  kickoff={ko}
-                  onSave={onSave}
-                  label={`Group ${m.group}`}
-                  isNext={isNext}
-                />
-              </div>
-            )
-          })}
+        <div className="p-3 space-y-1.5 bg-[#0D0D0B]/40">
+          {hasNext && nextMatchId && kickoffs[nextMatchId] && (
+            <TickingCountdown kickoff={kickoffs[nextMatchId]} />
+          )}
+          {visibleMatches.map(m => (
+            <PickRow
+              key={m.id}
+              match={m}
+              pick={myPicks[m.id]}
+              result={results[m.id]}
+              kickoff={kickoffs[m.id]}
+              onSave={onSave}
+              isNext={m.id === nextMatchId}
+            />
+          ))}
         </div>
       )}
     </div>
