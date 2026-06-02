@@ -159,7 +159,7 @@ export default function Login() {
                 {loading ? 'Signing in…' : <><span>Sign In</span><ArrowRight className="h-4 w-4" /></>}
               </button>
               <p className="text-xs text-[#807D73] text-center">
-                New to the pool?{' '}
+                New to the pool? &nbsp;&nbsp;
                 <button onClick={() => switchMode('register')} className="text-[#FFD706] hover:underline font-semibold">
                   Register here
                 </button>
@@ -172,7 +172,7 @@ export default function Login() {
                 <Input
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  placeholder="Maria Rodriguez"
+                  placeholder="John Doe"
                   onKeyDown={e => e.key === 'Enter' && handleRegister()}
                   className="h-11"
                   autoFocus
@@ -186,7 +186,7 @@ export default function Login() {
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="maria@recurly.com"
+                  placeholder="jdoe@recurly.com"
                   onKeyDown={e => e.key === 'Enter' && handleRegister()}
                   className="h-11"
                 />
@@ -199,7 +199,7 @@ export default function Login() {
                 {loading ? 'Joining…' : <><span>Join the Pool</span><ArrowRight className="h-4 w-4" /></>}
               </button>
               <p className="text-xs text-[#807D73] text-center">
-                Already joined?{' '}
+                Already joined? &nbsp;&nbsp;
                 <button onClick={() => switchMode('signin')} className="text-[#FFD706] hover:underline font-semibold">
                   Sign in
                 </button>

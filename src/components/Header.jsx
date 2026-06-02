@@ -39,7 +39,7 @@ export default function Header() {
             )}
           </div>
           <div>
-            <div className="text-sm font-extrabold leading-tight tracking-tight text-gradient">
+            <div className="text-lg font-extrabold leading-tight tracking-tight text-gradient">
               {poolName}
             </div>
             <div className="text-[10px] text-[#807D73] leading-none mt-0.5 flex items-center gap-1">

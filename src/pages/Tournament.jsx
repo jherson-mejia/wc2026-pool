@@ -6,6 +6,7 @@ import { cachedFetch } from '@/lib/apiCache'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import TopScorers from '@/components/TopScorers'
+import Bracket from '@/components/Bracket'
 
 // ── Team name normalization ───────────────────────────────────
 const TEAM_NAME_MAP = {
@@ -183,8 +184,9 @@ function GroupsTab() {
         ))}
       </div>
 
-      <div className="rounded-xl border border-[#32312D] overflow-hidden">
-        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-4 px-4 py-2.5 bg-[#32312D]/40 text-xs text-[#807D73] uppercase tracking-wider font-semibold">
+      <div className="rounded-xl border border-[#32312D] overflow-x-auto">
+       <div className="min-w-[380px]">
+        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 px-4 py-2.5 bg-[#32312D]/40 text-xs text-[#807D73] uppercase tracking-wider font-semibold">
           <span>Team</span>
           <span className="text-center w-7">P</span>
           <span className="text-center w-7">W</span>
@@ -203,7 +205,7 @@ function GroupsTab() {
             <div
               key={row.team?.id ?? i}
               className={cn(
-                'grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-4 px-4 py-3 items-center border-t border-[#32312D] transition-all',
+                'grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 px-4 py-3 items-center border-t border-[#32312D] transition-all',
                 advances ? 'border-l-2 border-l-[#FFD706]/60 bg-[#FFD706]/5' : 'border-l-2 border-l-transparent'
               )}
             >
@@ -214,15 +216,14 @@ function GroupsTab() {
               </div>
               {(() => {
                 const p = row.playedGames ?? 0
-                const dash = <span className="text-sm text-[#32312D] text-center tabular-nums">–</span>
                 if (p === 0) return (
                   <>
-                    {dash}
-                    {dash}
-                    {dash}
-                    {dash}
-                    {dash}
-                    {dash}
+                    <span className="text-sm text-[#32312D] text-center w-7 tabular-nums">–</span>
+                    <span className="text-sm text-[#32312D] text-center w-7 tabular-nums">–</span>
+                    <span className="text-sm text-[#32312D] text-center w-7 tabular-nums">–</span>
+                    <span className="text-sm text-[#32312D] text-center w-7 tabular-nums">–</span>
+                    <span className="text-sm text-[#32312D] text-center w-9 tabular-nums">–</span>
+                    <span className="text-sm text-[#32312D] text-center w-9 tabular-nums">–</span>
                   </>
                 )
                 return (
@@ -244,6 +245,7 @@ function GroupsTab() {
             </div>
           )
         })}
+       </div>
       </div>
       {rows.length > 0 && (
         <p className="text-xs text-[#807D73] mt-2 pl-1">Top 2 advance · highlighted in yellow</p>
@@ -390,11 +392,13 @@ export default function Tournament() {
         <TabsList className="mb-1 flex-wrap">
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="groups">Groups</TabsTrigger>
+          <TabsTrigger value="knockouts">Knockouts</TabsTrigger>
           <TabsTrigger value="scorers">Scorers</TabsTrigger>
           <TabsTrigger value="results">Results</TabsTrigger>
         </TabsList>
         <TabsContent value="schedule"><ScheduleTab /></TabsContent>
         <TabsContent value="groups"><GroupsTab /></TabsContent>
+        <TabsContent value="knockouts"><Bracket /></TabsContent>
         <TabsContent value="scorers"><TopScorers /></TabsContent>
         <TabsContent value="results"><ResultsTab /></TabsContent>
       </Tabs>
