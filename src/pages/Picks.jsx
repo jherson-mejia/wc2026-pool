@@ -20,12 +20,15 @@ function TickingCountdown({ kickoff }) {
   }, [])
   const ms = Math.max(0, new Date(kickoff).getTime() - now)
   if (ms === 0) return null
-  const h = Math.floor(ms / 3_600_000)
+  const d = Math.floor(ms / 86_400_000)
+  const h = Math.floor((ms % 86_400_000) / 3_600_000)
   const m = Math.floor((ms % 3_600_000) / 60_000)
   const s = Math.floor((ms % 60_000) / 1_000)
-  const str = h > 0
-    ? `${h}h ${String(m).padStart(2, '0')}m`
-    : `${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`
+  const str = d > 0
+    ? `${d}d ${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`
+    : h > 0
+      ? `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`
+      : `${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`
   return (
     <div className="flex items-center justify-center gap-2 py-1.5 mb-1.5 rounded-lg bg-[#FFD706]/10 border border-[#FFD706]/30">
       <Zap className="h-3 w-3 text-[#FFD706] animate-pulse shrink-0" />

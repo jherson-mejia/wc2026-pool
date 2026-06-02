@@ -12,6 +12,12 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  test: {
+    environment: 'node',
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   server: {
     proxy: {
       '/api': {
