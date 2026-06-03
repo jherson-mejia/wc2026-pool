@@ -1,55 +1,13 @@
-import { useState, useEffect } from 'react'
-import { RefreshCw, Calendar, Globe } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Calendar } from 'lucide-react'
 import { getFlag, GROUP_MATCHES, GROUPS } from '@/data/worldcup'
 import { useApp } from '@/context/AppContext'
-import { cachedFetch } from '@/lib/apiCache'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import TopScorers from '@/components/TopScorers'
 import Bracket from '@/components/Bracket'
 
-// ── Team name normalization ───────────────────────────────────
-const TEAM_NAME_MAP = {
-  'Korea Republic': 'South Korea',
-  "Côte d'Ivoire": 'Ivory Coast',
-  'Ivory Coast': 'Ivory Coast',
-  'Türkiye': 'Turkey',
-  'Bosnia-Herzegovina': 'Bosnia and Herzegovina',
-  'Cabo Verde': 'Cape Verde',
-  'Cape Verde Islands': 'Cape Verde',
-  'Congo DR': 'DR Congo',
-  'Democratic Republic of Congo': 'DR Congo',
-  'USA': 'United States',
-  'United States of America': 'United States',
-  'Czech Republic': 'Czech Republic',
-  'Czechia': 'Czech Republic',
-  'IR Iran': 'Iran',
-  'Curacao': 'Curaçao',
-}
-const normalize = n => TEAM_NAME_MAP[n] ?? n
-
-// ── Shared skeleton / error / empty ──────────────────────────
-function Skeletons() {
-  return (
-    <div className="space-y-2">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="h-12 rounded-xl border border-[#32312D] animate-pulse" />
-      ))}
-    </div>
-  )
-}
-
-function ErrorState({ msg, onRetry }) {
-  return (
-    <div className="rounded-xl border border-[#32312D] bg-[#32312D]/20 px-4 py-5 flex items-center justify-between gap-3">
-      <p className="text-xs text-[#807D73]">{msg}</p>
-      <button onClick={onRetry} className="text-xs text-[#FFD706] hover:underline flex items-center gap-1 shrink-0">
-        <RefreshCw className="h-3 w-3" /> Retry
-      </button>
-    </div>
-  )
-}
-
+// ── Shared empty ─────────────────────────────────────────────
 function EmptyState({ icon: Icon, msg }) {
   return (
     <div className="py-16 text-center text-[#807D73]">
@@ -103,78 +61,67 @@ for (const g of GROUPS) {
   for (const t of g.teams) TEAM_TO_GROUP[t] = g.id
 }
 
-// ── GroupsTab — cached API call (30 min TTL) ──────────────────
+// ── GroupsTab — computed from local results (no external API) ──
 const GROUP_LETTERS = ['A','B','C','D','E','F','G','H','I','J','K','L']
 
+function computeStandings(results) {
+  const stats = {}
+  const init = name => {
+    if (!stats[name]) stats[name] = { name, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }
+  }
+  for (const m of GROUP_MATCHES) {
+    const r = results[m.id]
+    if (!r || r.home == null || r.away == null) continue
+    init(m.home); init(m.away)
+    const h = Number(r.home), a = Number(r.away)
+    stats[m.home].p++; stats[m.away].p++
+    stats[m.home].gf += h; stats[m.home].ga += a
+    stats[m.away].gf += a; stats[m.away].ga += h
+    if (h > a) {
+      stats[m.home].w++; stats[m.home].pts += 3
+      stats[m.away].l++
+    } else if (a > h) {
+      stats[m.away].w++; stats[m.away].pts += 3
+      stats[m.home].l++
+    } else {
+      stats[m.home].d++; stats[m.home].pts++
+      stats[m.away].d++; stats[m.away].pts++
+    }
+  }
+  return stats
+}
+
 function GroupsTab() {
-  const [standings, setStandings] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const { results } = useApp()
   const [activeGroup, setActiveGroup] = useState('A')
 
-  async function load() {
-    setLoading(true)
-    setError(null)
-    try {
-      const json = await cachedFetch(
-        'standings-2026',
-        '/api/football-data/competitions/WC/standings?season=2026',
-        30 * 60 * 1000,
-      )
-      const total = (json.standings ?? []).filter(s => s.type === 'TOTAL')
-      setStandings(total)
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
+  const groupMap = useMemo(() => {
+    const stats = computeStandings(results)
+    const map = {}
+    for (const g of GROUPS) {
+      const rows = g.teams.map(name => ({
+        name,
+        ...(stats[name] ?? { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }),
+        gd: (stats[name]?.gf ?? 0) - (stats[name]?.ga ?? 0),
+      }))
+      rows.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+      map[g.id] = rows
     }
-  }
+    return map
+  }, [results])
 
-  useEffect(() => { load() }, [])
-
-  if (loading) return <Skeletons />
-  if (error) return <ErrorState msg={error} onRetry={load} />
-  if (!standings?.length) return <EmptyState icon={Globe} msg="No standings available yet" />
-
-  const groupMap = {}
-  let flatSplit = false
-  for (const s of standings) {
-    const letter = s.group?.replace('GROUP_', '') ?? ''
-    if (letter) {
-      groupMap[letter] = s.table ?? []
-    } else {
-      flatSplit = true
-      for (const row of s.table ?? []) {
-        const name = normalize(row.team?.name ?? '')
-        const g = TEAM_TO_GROUP[name] ?? null
-        if (g) {
-          if (!groupMap[g]) groupMap[g] = []
-          groupMap[g].push(row)
-        }
-      }
-    }
-  }
-  // Re-index positions 1–4 within each group when built from a flat list
-  if (flatSplit) {
-    for (const rows of Object.values(groupMap)) {
-      rows.forEach((row, i) => { row.position = i + 1 })
-    }
-  }
-
-  const availableGroups = GROUP_LETTERS.filter(g => groupMap[g])
-  const currentLetter = availableGroups.includes(activeGroup) ? activeGroup : availableGroups[0] ?? 'A'
-  const rows = groupMap[currentLetter] ?? []
+  const rows = groupMap[activeGroup] ?? []
 
   return (
     <div>
       <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-none mb-4">
-        {availableGroups.map(g => (
+        {GROUP_LETTERS.map(g => (
           <button
             key={g}
             onClick={() => setActiveGroup(g)}
             className={cn(
               'shrink-0 w-9 h-9 rounded-lg text-sm font-bold transition-all border',
-              g === currentLetter
+              g === activeGroup
                 ? 'bg-[#FFD706] text-[#0D0D0B] border-[#FFD706]'
                 : 'bg-transparent text-[#807D73] border-[#32312D] hover:text-[#FFFDF2] hover:border-[#FFFDF2]/30'
             )}
@@ -197,59 +144,49 @@ function GroupsTab() {
         </div>
 
         {rows.map((row, i) => {
-          const name = normalize(row.team?.name ?? '')
-          const flag = getFlag(name)
-          const gd = row.goalDifference ?? 0
           const advances = i < 2
           return (
             <div
-              key={row.team?.id ?? i}
+              key={row.name}
               className={cn(
                 'grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 px-4 py-3 items-center border-t border-[#32312D] transition-all',
                 advances ? 'border-l-2 border-l-[#FFD706]/60 bg-[#FFD706]/5' : 'border-l-2 border-l-transparent'
               )}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className="text-sm text-[#807D73] w-4 shrink-0 tabular-nums">{row.position}</span>
-                <span className="text-lg leading-none shrink-0">{flag}</span>
-                <span className="text-sm font-semibold text-[#FFFDF2] truncate">{name}</span>
+                <span className="text-sm text-[#807D73] w-4 shrink-0 tabular-nums">{i + 1}</span>
+                <span className="text-lg leading-none shrink-0">{getFlag(row.name)}</span>
+                <span className="text-sm font-semibold text-[#FFFDF2] truncate">{row.name}</span>
               </div>
-              {(() => {
-                const p = row.playedGames ?? 0
-                if (p === 0) return (
-                  <>
-                    <span className="text-sm text-[#32312D] text-center w-7 tabular-nums">–</span>
-                    <span className="text-sm text-[#32312D] text-center w-7 tabular-nums">–</span>
-                    <span className="text-sm text-[#32312D] text-center w-7 tabular-nums">–</span>
-                    <span className="text-sm text-[#32312D] text-center w-7 tabular-nums">–</span>
-                    <span className="text-sm text-[#32312D] text-center w-9 tabular-nums">–</span>
-                    <span className="text-sm text-[#32312D] text-center w-9 tabular-nums">–</span>
-                  </>
-                )
-                return (
-                  <>
-                    <span className="text-sm text-[#FFFDF2] text-center w-7 tabular-nums">{p}</span>
-                    <span className="text-sm text-[#FFFDF2] text-center w-7 tabular-nums">{row.won}</span>
-                    <span className="text-sm text-[#FFFDF2] text-center w-7 tabular-nums">{row.draw}</span>
-                    <span className="text-sm text-[#FFFDF2] text-center w-7 tabular-nums">{row.lost}</span>
-                    <span className={cn(
-                      'text-sm font-semibold text-center w-9 tabular-nums',
-                      gd > 0 ? 'text-green-400' : gd < 0 ? 'text-red-400' : 'text-[#807D73]'
-                    )}>
-                      {gd > 0 ? `+${gd}` : gd}
-                    </span>
-                    <span className="text-sm font-extrabold text-center w-9 tabular-nums text-[#FFD706]">{row.points}</span>
-                  </>
-                )
-              })()}
+              {row.p === 0 ? (
+                <>
+                  <span className="text-sm text-[#3a3835] text-center w-7 tabular-nums">–</span>
+                  <span className="text-sm text-[#3a3835] text-center w-7 tabular-nums">–</span>
+                  <span className="text-sm text-[#3a3835] text-center w-7 tabular-nums">–</span>
+                  <span className="text-sm text-[#3a3835] text-center w-7 tabular-nums">–</span>
+                  <span className="text-sm text-[#3a3835] text-center w-9 tabular-nums">–</span>
+                  <span className="text-sm text-[#3a3835] text-center w-9 tabular-nums">–</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-sm text-[#FFFDF2] text-center w-7 tabular-nums">{row.p}</span>
+                  <span className="text-sm text-[#FFFDF2] text-center w-7 tabular-nums">{row.w}</span>
+                  <span className="text-sm text-[#FFFDF2] text-center w-7 tabular-nums">{row.d}</span>
+                  <span className="text-sm text-[#FFFDF2] text-center w-7 tabular-nums">{row.l}</span>
+                  <span className={cn('text-sm font-semibold text-center w-9 tabular-nums',
+                    row.gd > 0 ? 'text-green-400' : row.gd < 0 ? 'text-red-400' : 'text-[#807D73]'
+                  )}>
+                    {row.gd > 0 ? `+${row.gd}` : row.gd}
+                  </span>
+                  <span className="text-sm font-extrabold text-center w-9 tabular-nums text-[#FFD706]">{row.pts}</span>
+                </>
+              )}
             </div>
           )
         })}
        </div>
       </div>
-      {rows.length > 0 && (
-        <p className="text-xs text-[#807D73] mt-2 pl-1">Top 2 advance · highlighted in yellow</p>
-      )}
+      <p className="text-xs text-[#807D73] mt-2 pl-1">Top 2 advance · highlighted in yellow</p>
     </div>
   )
 }
@@ -323,31 +260,35 @@ function ResultsTab() {
   )
 }
 
-// ── ScheduleTab — reads from Supabase via AppContext (no API) ─
+// ── ScheduleTab — all group matches, score shown when available ─
 function ScheduleTab() {
   const { results, kickoffs } = useApp()
   const now = Date.now()
 
-  const upcoming = GROUP_MATCHES
-    .filter(m => !results[m.id] && kickoffs[m.id] && new Date(kickoffs[m.id]).getTime() > now)
+  const sorted = [...GROUP_MATCHES]
     .map(m => ({
       id: m.id,
       home: m.home,
       away: m.away,
-      kickoff: kickoffs[m.id],
-      label: `Group ${m.group}`,
+      group: m.group,
+      kickoff: kickoffs[m.id] ?? null,
+      result: results[m.id] ?? null,
     }))
-    .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff))
-    .slice(0, 20)
+    .sort((a, b) => {
+      const ta = a.kickoff ? new Date(a.kickoff).getTime() : Infinity
+      const tb = b.kickoff ? new Date(b.kickoff).getTime() : Infinity
+      return ta - tb
+    })
 
-  if (!upcoming.length) return <EmptyState icon={Calendar} msg="No upcoming group matches" />
+  if (!sorted.length) return <EmptyState icon={Calendar} msg="No group matches found" />
 
   const groups = []
   let lastKey = null
-  for (const m of upcoming) {
-    const key = localDateKey(m.kickoff)
+  for (const m of sorted) {
+    const key   = m.kickoff ? localDateKey(m.kickoff) : '__tbd__'
+    const label = m.kickoff ? relativeDate(m.kickoff) : 'Date TBD'
     if (key !== lastKey) {
-      groups.push({ key, label: relativeDate(m.kickoff), items: [] })
+      groups.push({ key, label, items: [] })
       lastKey = key
     }
     groups[groups.length - 1].items.push(m)
@@ -359,23 +300,57 @@ function ScheduleTab() {
         <div key={key}>
           <DateDivider label={label} />
           <div className="space-y-1.5">
-            {items.map(m => (
-              <div key={m.id} className="flex items-center gap-2 rounded-xl border border-[#32312D] bg-[#32312D]/20 px-3 py-2.5">
-                <div className="text-[11px] text-[#807D73] shrink-0 w-16 tabular-nums">{localTime(m.kickoff)}</div>
-                <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
-                  <span className="text-xs font-semibold text-[#FFFDF2] truncate text-right">{m.home}</span>
-                  <span className="text-base leading-none shrink-0">{getFlag(m.home)}</span>
+            {items.map(m => {
+              const finished = !!m.result
+              const inFuture = m.kickoff && new Date(m.kickoff).getTime() > now
+              return (
+                <div key={m.id} className={cn(
+                  'flex items-center gap-2 rounded-xl border px-3 py-2.5',
+                  finished ? 'border-[#32312D] bg-[#32312D]/20' : 'border-[#32312D] bg-[#32312D]/10 opacity-80',
+                )}>
+                  {/* Time / FT */}
+                  <div className="text-[11px] shrink-0 w-16 tabular-nums text-center">
+                    {finished
+                      ? <span className="text-[#22c55e] font-bold">FT</span>
+                      : m.kickoff
+                        ? <span className="text-[#807D73]">{localTime(m.kickoff)}</span>
+                        : <span className="text-[#3a3835]">TBD</span>}
+                  </div>
+
+                  {/* Home */}
+                  <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
+                    <span className={cn(
+                      'text-xs truncate text-right',
+                      finished && m.result.winner === 'home' ? 'font-bold text-[#FFFDF2]' : 'font-semibold text-[#FFFDF2]',
+                    )}>{m.home}</span>
+                    <span className="text-base leading-none shrink-0">{getFlag(m.home)}</span>
+                  </div>
+
+                  {/* Score / vs */}
+                  <div className="shrink-0 w-16 text-center">
+                    {finished
+                      ? <span className="text-sm font-extrabold text-[#FFFDF2] tabular-nums">
+                          {m.result.home} – {m.result.away}
+                        </span>
+                      : <span className="text-[11px] text-[#807D73]">vs</span>}
+                  </div>
+
+                  {/* Away */}
+                  <div className="flex items-center gap-1.5 flex-1 justify-start min-w-0">
+                    <span className="text-base leading-none shrink-0">{getFlag(m.away)}</span>
+                    <span className={cn(
+                      'text-xs truncate',
+                      finished && m.result.winner === 'away' ? 'font-bold text-[#FFFDF2]' : 'font-semibold text-[#FFFDF2]',
+                    )}>{m.away}</span>
+                  </div>
+
+                  {/* Group badge */}
+                  <div className="shrink-0 text-[10px] text-[#807D73] bg-[#32312D] border border-[#32312D] rounded-full px-2 py-0.5 leading-none whitespace-nowrap">
+                    G{m.group}
+                  </div>
                 </div>
-                <div className="text-[11px] text-[#807D73] shrink-0 w-6 text-center">vs</div>
-                <div className="flex items-center gap-1.5 flex-1 justify-start min-w-0">
-                  <span className="text-base leading-none shrink-0">{getFlag(m.away)}</span>
-                  <span className="text-xs font-semibold text-[#FFFDF2] truncate">{m.away}</span>
-                </div>
-                <div className="shrink-0 text-[10px] text-[#807D73] bg-[#32312D] border border-[#32312D] rounded-full px-2 py-0.5 leading-none whitespace-nowrap">
-                  {m.label}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       ))}

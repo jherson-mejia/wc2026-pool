@@ -8,6 +8,7 @@ import Leaderboard from '@/pages/Leaderboard'
 import Picks from '@/pages/Picks'
 import Admin from '@/pages/Admin'
 import Tournament from '@/pages/Tournament'
+import DevLab from '@/pages/DevLab'
 
 function AuthGate({ children }) {
   const { user, ready } = useApp()
@@ -37,6 +38,7 @@ export default function App() {
                   <Route path="/tournament"  element={<Tournament />} />
                   <Route path="/picks"       element={<Picks />} />
                   <Route path="/admin"       element={<Admin />} />
+                  {import.meta.env.DEV && <Route path="/dev" element={<DevLab />} />}
                   <Route path="*"            element={<Navigate to="/leaderboard" replace />} />
                 </Routes>
               </main>

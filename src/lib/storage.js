@@ -78,6 +78,12 @@ export async function apiSavePick(email, matchId, home, away, winner) {
   })
 }
 
+export async function apiBulkImportPicks(picks) {
+  return apiFetch('/api/picks/bulk', {
+    method: 'POST', headers: adminHeaders(), body: JSON.stringify({ picks }),
+  })
+}
+
 // ── Results ───────────────────────────────────────────────────
 export async function apiSaveResult(matchId, home, away, winner, homePens = null, awayPens = null) {
   return apiFetch(`/api/results/${encodeURIComponent(matchId)}`, {

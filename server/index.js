@@ -196,11 +196,37 @@ app.delete('/api/participants/:email', adminOnly, async (req, res) => {
 app.put('/api/picks/:id', async (req, res) => {
   const { id } = req.params
   const { email, match_id, home, away, winner } = req.body ?? {}
+
+  // Server-side kickoff lock
+  const { data: ko } = await supabase.from('kickoffs').select('kickoff').eq('match_id', match_id).maybeSingle()
+  if (ko?.kickoff && Date.now() >= new Date(ko.kickoff).getTime()) {
+    return res.status(403).json({ error: 'Picks locked — match has already kicked off' })
+  }
+
   const row = { id, email, match_id, home, away, winner: winner ?? null, ts: Date.now() }
   const { error } = await supabase.from('picks').upsert(row, { onConflict: 'id' })
   if (error) return res.status(500).json({ error: error.message })
   broadcastTable('picks')
   res.json({ ok: true })
+})
+
+// ── Picks bulk import ─────────────────────────────────────────
+app.post('/api/picks/bulk', adminOnly, async (req, res) => {
+  const { picks } = req.body ?? {}
+  if (!Array.isArray(picks) || !picks.length) return res.status(400).json({ error: 'picks array required' })
+  const rows = picks.map(p => ({
+    id:       `${p.email}_${p.match_id}`,
+    email:    p.email,
+    match_id: p.match_id,
+    home:     p.home,
+    away:     p.away,
+    winner:   p.winner ?? null,
+    ts:       Date.now(),
+  }))
+  const { error } = await supabase.from('picks').upsert(rows, { onConflict: 'id' })
+  if (error) return res.status(500).json({ error: error.message })
+  broadcastTable('picks')
+  res.json({ ok: true, count: rows.length })
 })
 
 // ── Results ───────────────────────────────────────────────────

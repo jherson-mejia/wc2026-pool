@@ -14,7 +14,8 @@ import {
 } from '@/components/ui/select'
 import { calcTotals } from '@/lib/scoring'
 import { fetchFinishedMatches, mapToPoolResults, fetchSchedule, mapKickoffs } from '@/lib/autoSync'
-import { Download, Trash2, CheckCircle, Users, RefreshCw, Pencil, ChevronDown, X, Check, Clock, Zap } from 'lucide-react'
+import { apiBulkImportPicks } from '@/lib/storage'
+import { Download, Upload, Trash2, CheckCircle, Users, RefreshCw, Pencil, ChevronDown, X, Check, Clock, Zap } from 'lucide-react'
 
 // ── Enter Results ─────────────────────────────────────────────
 function ResultsTab() {
@@ -448,9 +449,14 @@ function ParticipantsTab() {
   )
 }
 
-// ── Backup ────────────────────────────────────────────────────
+// ── Backup & Import ───────────────────────────────────────────
 function BackupTab() {
   const { poolName, mode, participants, results, koMatches, allPicks } = useApp()
+  const { toast } = useToast()
+  const [importing, setImporting] = useState(false)
+  const [preview, setPreview]     = useState(null) // { picks: flat[], participants: int }
+  const [importLog, setImportLog] = useState([])
+  const fileRef = useRef(null)
 
   function download() {
     const data = { poolName, mode, exportedAt: new Date().toISOString(), participants, results, koMatches, picks: allPicks }
@@ -460,16 +466,89 @@ function BackupTab() {
     a.click()
   }
 
+  function handleFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      try {
+        const json = JSON.parse(ev.target.result)
+        // Accept backup format: { picks: { email: { matchId: { home, away, winner } } } }
+        const picksObj = json.picks ?? {}
+        const flat = []
+        for (const [email, matchMap] of Object.entries(picksObj)) {
+          for (const [match_id, pick] of Object.entries(matchMap)) {
+            if (pick.home == null || pick.away == null) continue
+            flat.push({ email, match_id, home: Number(pick.home), away: Number(pick.away), winner: pick.winner ?? null })
+          }
+        }
+        setPreview({ picks: flat, participantCount: Object.keys(picksObj).length })
+        setImportLog([])
+      } catch {
+        toast({ title: 'Invalid JSON file', variant: 'destructive' })
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  async function doImport() {
+    if (!preview?.picks?.length) return
+    setImporting(true)
+    setImportLog(['Importing…'])
+    try {
+      const { count } = await apiBulkImportPicks(preview.picks)
+      setImportLog([`✓ Imported ${count} picks across ${preview.participantCount} participant(s)`])
+      toast({ title: `Imported ${count} picks ✓` })
+      setPreview(null)
+      if (fileRef.current) fileRef.current.value = ''
+    } catch (e) {
+      setImportLog([`✗ ${e.message}`])
+      toast({ title: e.message, variant: 'destructive' })
+    } finally {
+      setImporting(false) }
+  }
+
   return (
     <div className="space-y-4">
+      {/* Download */}
       <Card>
-        <CardHeader><CardTitle className="text-sm">Backup Pool Data</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Download className="h-4 w-4" />Backup Pool Data</CardTitle></CardHeader>
         <CardContent className="pt-0 space-y-3">
-          <p className="text-sm text-[#807D73]">Download a full JSON snapshot: participants, all picks, and results. Run this after each matchday.</p>
+          <p className="text-sm text-[#807D73]">Download a full JSON snapshot: participants, all picks, and results.</p>
           <Button onClick={download}><Download className="h-4 w-4" />Download Backup</Button>
         </CardContent>
       </Card>
 
+      {/* Import picks */}
+      <Card>
+        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Upload className="h-4 w-4" />Import Picks</CardTitle></CardHeader>
+        <CardContent className="pt-0 space-y-3">
+          <p className="text-sm text-[#807D73]">Upload a backup JSON file to bulk-import picks for all participants. Existing picks are overwritten.</p>
+          <input ref={fileRef} type="file" accept=".json" onChange={handleFile}
+            className="text-xs text-[#807D73] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#32312D] file:text-[#FFFDF2] hover:file:bg-[#FFD706] hover:file:text-[#0D0D0B] file:cursor-pointer file:transition-colors" />
+          {preview && (
+            <div className="rounded-lg border border-[#32312D] bg-[#32312D]/20 p-3 text-sm space-y-2">
+              <p className="text-[#FFFDF2] font-semibold">
+                {preview.picks.length} picks · {preview.participantCount} participant(s)
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={doImport} disabled={importing}>
+                  {importing ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                  {importing ? 'Importing…' : 'Confirm Import'}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => { setPreview(null); if (fileRef.current) fileRef.current.value = '' }}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+          {importLog.length > 0 && (
+            <pre className="text-xs text-[#807D73] font-mono bg-[#1a1a18] rounded p-2">{importLog.join('\n')}</pre>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Scoring reference */}
       <Card>
         <CardHeader><CardTitle className="text-sm">Scoring Reference</CardTitle></CardHeader>
         <CardContent className="pt-0">
