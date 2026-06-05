@@ -79,7 +79,7 @@ const SCORING_PILLS = [
 ]
 
 export default function Leaderboard() {
-  const { participants, allPicks, myPicks, results, user } = useApp()
+  const { participants, allPicks, myPicks, results, user, allScorer, matchGoals } = useApp()
 
   const { played, stage } = useMemo(() => {
     const played = Object.keys(results).length
@@ -95,8 +95,9 @@ export default function Leaderboard() {
     return participants
       .filter(p => p.email !== '__admin__')
       .map(p => {
-        const picks = p.email === user?.email ? myPicks : (allPicks[p.email] || {})
-        return { ...p, ...calcTotals(picks, results) }
+        const picks  = p.email === user?.email ? myPicks : (allPicks[p.email] || {})
+        const scorer = allScorer[p.email] || {}
+        return { ...p, ...calcTotals(picks, results, scorer, matchGoals) }
       })
       .sort((a, b) => b.pts - a.pts || b.correct - a.correct || b.exact - a.exact)
   }, [participants, allPicks, myPicks, results, user])

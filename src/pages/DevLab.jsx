@@ -56,11 +56,28 @@ function SchedulerPanel() {
     setStatus(s)
   }
 
+  const [schedSyncing, setSchedSyncing] = useState(false)
+  const [schedLog, setSchedLog]         = useState(null)
+
   async function forceSync() {
     setSyncing(true)
     await apiFetch('/api/scheduler-force', { method: 'POST' })
     await refresh()
     setSyncing(false)
+  }
+
+  async function forceSyncSchedule() {
+    setSchedSyncing(true)
+    setSchedLog(null)
+    try {
+      const r = await apiFetch('/api/scheduler-sync-schedule', { method: 'POST' })
+      setSchedLog(`✓ ${r.kickoffs} kickoffs · ${r.fdIds} FD IDs · ${r.odds} odds`)
+    } catch (e) {
+      setSchedLog(`✗ ${e.message}`)
+    } finally {
+      setSchedSyncing(false)
+      refresh()
+    }
   }
 
   useEffect(() => {
@@ -103,14 +120,25 @@ function SchedulerPanel() {
           </div>
         </div>
       </div>
-      <button
-        onClick={forceSync}
-        disabled={syncing}
-        className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-[#32312D] text-xs font-bold text-[#FFFDF2] hover:bg-[#FFD706] hover:text-[#0D0D0B] transition-colors disabled:opacity-50"
-      >
-        <RefreshCw className={cn('h-3.5 w-3.5', syncing && 'animate-spin')} />
-        {syncing ? 'Syncing…' : 'Force Sync'}
-      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={forceSync}
+          disabled={syncing || schedSyncing}
+          className="flex items-center justify-center gap-2 py-2 rounded-lg bg-[#32312D] text-xs font-bold text-[#FFFDF2] hover:bg-[#FFD706] hover:text-[#0D0D0B] transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={cn('h-3.5 w-3.5', syncing && 'animate-spin')} />
+          {syncing ? 'Syncing…' : 'Sync Results'}
+        </button>
+        <button
+          onClick={forceSyncSchedule}
+          disabled={syncing || schedSyncing}
+          className="flex items-center justify-center gap-2 py-2 rounded-lg bg-[#32312D] text-xs font-bold text-[#FFFDF2] hover:bg-[#FF8200] hover:text-[#0D0D0B] transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={cn('h-3.5 w-3.5', schedSyncing && 'animate-spin')} />
+          {schedSyncing ? 'Syncing…' : 'Sync Schedule'}
+        </button>
+      </div>
+      {schedLog && <div className="text-[10px] text-[#807D73] text-center">{schedLog}</div>}
     </div>
   )
 }
@@ -530,6 +558,221 @@ function PickLockTester() {
   )
 }
 
+// ── Scorer tester ─────────────────────────────────────────────
+const TEST_HOME_ID = 901
+const TEST_AWAY_ID = 902
+
+function makeTestLineup() {
+  const pos = (id, name, position, shirt) => ({ id, name, position, shirtNumber: shirt })
+  return {
+    home_team_id: TEST_HOME_ID,
+    away_team_id: TEST_AWAY_ID,
+    home_lineup: [
+      pos(90001, 'Home GK',  'Goalkeeper',       1),
+      pos(90002, 'Home RB',  'Right-Back',        2),
+      pos(90003, 'Home CB1', 'Centre-Back',       4),
+      pos(90004, 'Home CB2', 'Centre-Back',       5),
+      pos(90005, 'Home LB',  'Left-Back',         3),
+      pos(90006, 'Home DM',  'Defensive Midfield',6),
+      pos(90007, 'Home CM',  'Central Midfield',  8),
+      pos(90008, 'Home AM',  'Attacking Midfield',10),
+      pos(90009, 'Home RW',  'Right Winger',      7),
+      pos(90010, 'Home LW',  'Left Winger',       11),
+      pos(90011, 'Home ST',  'Centre-Forward',    9),
+    ],
+    home_bench: [
+      pos(90012, 'Home Sub GK',  'Goalkeeper',      13),
+      pos(90013, 'Home Sub DEF', 'Centre-Back',     15),
+      pos(90014, 'Home Sub MID', 'Central Midfield',14),
+      pos(90015, 'Home Sub FW',  'Centre-Forward',  18),
+    ],
+    away_lineup: [
+      pos(90021, 'Away GK',  'Goalkeeper',       1),
+      pos(90022, 'Away RB',  'Right-Back',        2),
+      pos(90023, 'Away CB1', 'Centre-Back',       4),
+      pos(90024, 'Away CB2', 'Centre-Back',       5),
+      pos(90025, 'Away LB',  'Left-Back',         3),
+      pos(90026, 'Away DM',  'Defensive Midfield',6),
+      pos(90027, 'Away CM',  'Central Midfield',  8),
+      pos(90028, 'Away AM',  'Attacking Midfield',10),
+      pos(90029, 'Away RW',  'Right Winger',      7),
+      pos(90030, 'Away LW',  'Left Winger',       11),
+      pos(90031, 'Away ST',  'Centre-Forward',    9),
+    ],
+    away_bench: [
+      pos(90032, 'Away Sub GK',  'Goalkeeper',      13),
+      pos(90033, 'Away Sub DEF', 'Centre-Back',     15),
+      pos(90034, 'Away Sub MID', 'Central Midfield',14),
+      pos(90035, 'Away Sub FW',  'Centre-Forward',  18),
+    ],
+  }
+}
+
+const DEV_TEST_MATCH_ID = 'DEV_TEST'
+
+function ScorerTester() {
+  const { lineups, matchGoals } = useApp()
+  const [matchId, setMatchId]   = useState(DEV_TEST_MATCH_ID)
+  const [team, setTeam]         = useState('home')
+  const [playerId, setPlayerId] = useState('')
+  const [saving, setSaving]     = useState(false)
+  const [log, setLog]           = useState('')
+
+  const lineup    = lineups[matchId]
+  const goals     = matchGoals[matchId]
+  const homeTeamId = lineup?.homeTeamId ?? TEST_HOME_ID
+  const awayTeamId = lineup?.awayTeamId ?? TEST_AWAY_ID
+
+  const allPlayers = team === 'home'
+    ? [...(lineup?.homeLineup ?? []), ...(lineup?.homeBench ?? [])]
+    : [...(lineup?.awayLineup ?? []), ...(lineup?.awayBench ?? [])]
+
+  async function injectLineup() {
+    setSaving(true)
+    setLog('Injecting lineup…')
+    try {
+      await apiFetch(`/api/lineups/${encodeURIComponent(matchId)}`, {
+        method: 'PUT', body: JSON.stringify(makeTestLineup()),
+      })
+      setLog(`✓ Lineup injected for ${matchId}`)
+    } catch (e) { setLog(`✗ ${e.message}`) }
+    finally { setSaving(false) }
+  }
+
+  async function clearLineup() {
+    setSaving(true)
+    try {
+      await apiFetch(`/api/lineups/${encodeURIComponent(matchId)}`, { method: 'DELETE' })
+      setLog(`✓ Lineup cleared for ${matchId}`)
+    } catch (e) { setLog(`✗ ${e.message}`) }
+    finally { setSaving(false) }
+  }
+
+  async function addGoal() {
+    if (!playerId) return
+    setSaving(true)
+    const player  = allPlayers.find(p => String(p.id) === playerId)
+    const teamId  = team === 'home' ? homeTeamId : awayTeamId
+    const newGoal = { minute: 45, scorer_id: Number(playerId), scorer_name: player?.name ?? '?', team_id: teamId }
+    const existing = goals?.goals ?? []
+    try {
+      await apiFetch(`/api/match-goals/${encodeURIComponent(matchId)}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          home_team_id: homeTeamId,
+          away_team_id: awayTeamId,
+          goals: [...existing, newGoal],
+        }),
+      })
+      setLog(`✓ Goal added: ${player?.name} (${team})`)
+      setPlayerId('')
+    } catch (e) { setLog(`✗ ${e.message}`) }
+    finally { setSaving(false) }
+  }
+
+  async function clearGoals() {
+    setSaving(true)
+    try {
+      await apiFetch(`/api/match-goals/${encodeURIComponent(matchId)}`, { method: 'DELETE' })
+      setLog(`✓ Goals cleared for ${matchId}`)
+    } catch (e) { setLog(`✗ ${e.message}`) }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Match selector */}
+      <div>
+        <label className="text-[10px] font-bold text-[#807D73] uppercase tracking-wider block mb-1">Match</label>
+        <select value={matchId} onChange={e => { setMatchId(e.target.value); setLog(''); setPlayerId('') }}
+          className="w-full rounded border border-[#32312D] bg-[#1a1a18] text-[#FFFDF2] text-xs px-2 py-1.5 font-mono focus:outline-none focus:border-[#FFD706]">
+          <optgroup label="Hidden (dev only — not visible to users)">
+            <option value={DEV_TEST_MATCH_ID}>DEV_TEST — hidden sandbox</option>
+          </optgroup>
+          <optgroup label="⚠ Real matches (changes visible to all users)">
+            {GROUP_MATCHES.map(m => <option key={m.id} value={m.id}>{m.id} — {m.home} vs {m.away}</option>)}
+          </optgroup>
+          {KO_ROUNDS.map(r => (
+            <optgroup key={r.id} label={`⚠ ${r.name}`}>
+              {Array.from({ length: r.count }, (_, i) => `${r.id}_${i+1}`).map(id => (
+                <option key={id} value={id}>{id}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </div>
+
+      {/* Lineup status */}
+      <div className="flex items-center justify-between">
+        <span className={cn('text-[10px] font-mono', lineup ? 'text-[#22c55e]' : 'text-[#807D73]')}>
+          {lineup ? `✓ Lineup: ${(lineup.homeLineup?.length ?? 0) + (lineup.homeBench?.length ?? 0)} home · ${(lineup.awayLineup?.length ?? 0) + (lineup.awayBench?.length ?? 0)} away` : 'No lineup'}
+        </span>
+        <div className="flex gap-1.5">
+          <button onClick={injectLineup} disabled={saving}
+            className="px-2 py-1 rounded bg-[#FFD706] text-[#0D0D0B] text-[10px] font-bold hover:bg-[#FFD706]/80 disabled:opacity-40 transition-colors">
+            Inject Lineup
+          </button>
+          {lineup && (
+            <button onClick={clearLineup} disabled={saving}
+              className="px-2 py-1 rounded border border-[#32312D] text-[#807D73] text-[10px] hover:text-red-400 hover:border-red-400/30 transition-colors">
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Goals section — only when lineup is available */}
+      {lineup && (
+        <div className="rounded border border-[#32312D] p-2.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-[#807D73] uppercase tracking-wider">Add Goal</span>
+            {goals?.goals?.length > 0 && (
+              <button onClick={clearGoals} disabled={saving}
+                className="text-[10px] text-red-400 hover:text-red-300 transition-colors">
+                clear all goals
+              </button>
+            )}
+          </div>
+
+          {/* Current goals */}
+          {goals?.goals?.length > 0 && (
+            <div className="space-y-0.5">
+              {goals.goals.map((g, i) => (
+                <div key={i} className="text-[10px] font-mono text-[#22c55e]">
+                  ⚽ {g.scorer_name} (team_id: {g.team_id} = {g.team_id === homeTeamId ? 'home' : 'away'})
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-1.5">
+            <select value={team} onChange={e => { setTeam(e.target.value); setPlayerId('') }}
+              className="rounded border border-[#32312D] bg-[#1a1a18] text-[#FFFDF2] text-xs px-1.5 py-1 focus:outline-none focus:border-[#FFD706]">
+              <option value="home">Home</option>
+              <option value="away">Away</option>
+            </select>
+            <select value={playerId} onChange={e => setPlayerId(e.target.value)}
+              className="flex-1 rounded border border-[#32312D] bg-[#1a1a18] text-[#FFFDF2] text-xs px-1.5 py-1 focus:outline-none focus:border-[#FFD706]">
+              <option value="">Select player…</option>
+              {allPlayers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <button onClick={addGoal} disabled={saving || !playerId}
+              className="px-2 py-1 rounded bg-[#22c55e] text-[#0D0D0B] text-[10px] font-bold hover:bg-[#22c55e]/80 disabled:opacity-40 transition-colors whitespace-nowrap">
+              Add ⚽
+            </button>
+          </div>
+        </div>
+      )}
+
+      {log && (
+        <div className={cn('text-[10px] font-mono px-2 py-1.5 rounded border', log.startsWith('✓') ? 'text-[#22c55e] border-[#22c55e]/20 bg-[#22c55e]/5' : log.startsWith('✗') ? 'text-red-400 border-red-400/20 bg-red-400/5' : 'text-[#807D73] border-[#32312D]')}>
+          {log}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────
 export default function DevLab() {
   const { log, clear } = useSSELog()
@@ -579,6 +822,14 @@ export default function DevLab() {
               <Lock className="h-3.5 w-3.5" /> Pick Lock Test
             </h2>
             <PickLockTester />
+          </div>
+
+          {/* Scorer tester */}
+          <div className="rounded-xl border border-[#32312D] bg-[#13130f] p-4">
+            <h2 className="text-xs font-bold text-[#807D73] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Zap className="h-3.5 w-3.5 text-[#22c55e]" /> Scorer Test
+            </h2>
+            <ScorerTester />
           </div>
         </div>
 

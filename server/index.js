@@ -68,6 +68,20 @@ async function broadcastTable(table) {
     const map = {}
     for (const r of data) map[r.match_id] = r.kickoff
     broadcast('kickoffs', map)
+  } else if (table === 'lineups') {
+    const map = {}
+    for (const r of data) map[r.match_id] = rowToLineup(r)
+    broadcast('lineups', map)
+  } else if (table === 'match_goals') {
+    const map = {}
+    for (const r of data) map[r.match_id] = rowToMatchGoals(r)
+    broadcast('match_goals', map)
+  } else if (table === 'scorer_picks') {
+    broadcast('scorer_picks', rowsToScorerPicks(data))
+  } else if (table === 'match_meta') {
+    const map = {}
+    for (const r of data) map[r.match_id] = rowToMatchMeta(r)
+    broadcast('match_meta', map)
   }
 }
 
@@ -75,12 +89,49 @@ async function broadcastTable(table) {
 const rowToResult = r => ({ matchId: r.match_id, home: r.home, away: r.away, winner: r.winner, homePens: r.home_pens ?? null, awayPens: r.away_pens ?? null, ts: r.ts })
 const rowToKo     = r => ({ matchId: r.match_id, home: r.home, away: r.away, ts: r.ts })
 const rowToPick   = r => ({ matchId: r.match_id, email: r.email, home: r.home, away: r.away, winner: r.winner, ts: r.ts })
+const rowToLineup = r => ({
+  matchId:    r.match_id,
+  homeTeamId: r.home_team_id,
+  awayTeamId: r.away_team_id,
+  homeLineup: r.home_lineup ?? [],
+  homeBench:  r.home_bench  ?? [],
+  awayLineup: r.away_lineup ?? [],
+  awayBench:  r.away_bench  ?? [],
+  fetchedAt:  r.fetched_at,
+})
+const rowToMatchGoals = r => ({
+  matchId:    r.match_id,
+  homeTeamId: r.home_team_id,
+  awayTeamId: r.away_team_id,
+  goals:      r.goals ?? [],
+})
+const rowToMatchMeta = r => ({
+  matchId:  r.match_id,
+  venue:    r.venue    ?? null,
+  referee:  r.referee  ?? null,
+  oddsHome: r.odds_home ?? null,
+  oddsDraw: r.odds_draw ?? null,
+  oddsAway: r.odds_away ?? null,
+})
 
 function rowsToPicks(rows) {
   const byEmail = {}
   for (const r of rows) {
     if (!byEmail[r.email]) byEmail[r.email] = {}
     byEmail[r.email][r.match_id] = rowToPick(r)
+  }
+  return byEmail
+}
+
+function rowsToScorerPicks(rows) {
+  const byEmail = {}
+  for (const r of rows) {
+    if (!byEmail[r.email]) byEmail[r.email] = {}
+    const key = `${r.match_id}_${r.team}`
+    byEmail[r.email][key] = {
+      matchId: r.match_id, email: r.email, team: r.team,
+      playerId: r.player_id, playerName: r.player_name, ts: r.ts,
+    }
   }
   return byEmail
 }
@@ -107,12 +158,19 @@ app.get('/api/events', async (req, res) => {
 
   // Send full snapshot on connect
   try {
-    const [{ data: parts }, { data: results }, { data: ko }, { data: picks }, { data: kos }] = await Promise.all([
+    const [
+      { data: parts }, { data: results }, { data: ko }, { data: picks }, { data: kos },
+      { data: lineupRows }, { data: goalsRows }, { data: scorerPickRows }, { data: metaRows },
+    ] = await Promise.all([
       supabase.from('participants').select('*'),
       supabase.from('results').select('*'),
       supabase.from('ko_matches').select('*'),
       supabase.from('picks').select('*'),
       supabase.from('kickoffs').select('*'),
+      supabase.from('lineups').select('*'),
+      supabase.from('match_goals').select('*'),
+      supabase.from('scorer_picks').select('*'),
+      supabase.from('match_meta').select('*'),
     ])
 
     const resultMap = {}
@@ -124,12 +182,25 @@ app.get('/api/events', async (req, res) => {
     const kickoffMap = {}
     for (const r of kos ?? []) kickoffMap[r.match_id] = r.kickoff
 
+    const lineupsMap = {}
+    for (const r of lineupRows ?? []) lineupsMap[r.match_id] = rowToLineup(r)
+
+    const goalsMap = {}
+    for (const r of goalsRows ?? []) goalsMap[r.match_id] = rowToMatchGoals(r)
+
     const write = (ev, d) => res.write(`event: ${ev}\ndata: ${JSON.stringify(d)}\n\n`)
     write('participants', parts ?? [])
     write('results',      resultMap)
     write('ko_matches',   koMap)
     write('picks',        rowsToPicks(picks ?? []))
     write('kickoffs',     kickoffMap)
+    const metaMap = {}
+    for (const r of metaRows ?? []) metaMap[r.match_id] = rowToMatchMeta(r)
+
+    write('lineups',      lineupsMap)
+    write('match_goals',  goalsMap)
+    write('scorer_picks', rowsToScorerPicks(scorerPickRows ?? []))
+    write('match_meta',   metaMap)
   } catch (err) {
     console.error('[SSE] initial snapshot failed:', err.message)
     res.write(`event: error\ndata: ${JSON.stringify({ error: err.message })}\n\n`)
@@ -298,6 +369,92 @@ app.put('/api/kickoffs', adminOnly, async (req, res) => {
   res.json({ ok: true, count: rows.length })
 })
 
+// ── Match Meta ────────────────────────────────────────────────
+app.put('/api/match-meta', adminOnly, async (req, res) => {
+  const map = req.body ?? {}
+  const rows = Object.entries(map).map(([match_id, meta]) => ({
+    match_id,
+    odds_home: meta.odds_home ?? null,
+    odds_draw: meta.odds_draw ?? null,
+    odds_away: meta.odds_away ?? null,
+    ts: Date.now(),
+  }))
+  if (!rows.length) return res.json({ ok: true, count: 0 })
+  const { error } = await supabase.from('match_meta').upsert(rows, { onConflict: 'match_id' })
+  if (error) return res.status(500).json({ error: error.message })
+  broadcastTable('match_meta')
+  res.json({ ok: true, count: rows.length })
+})
+
+// ── Lineup injection (dev/testing) ───────────────────────────
+app.put('/api/lineups/:matchId', adminOnly, async (req, res) => {
+  const { home_team_id = 1, away_team_id = 2, home_lineup = [], home_bench = [], away_lineup = [], away_bench = [] } = req.body ?? {}
+  const row = {
+    match_id: req.params.matchId,
+    home_team_id, away_team_id,
+    home_lineup, home_bench, away_lineup, away_bench,
+    fetched_at: Date.now(),
+  }
+  const { error } = await supabase.from('lineups').upsert(row, { onConflict: 'match_id' })
+  if (error) return res.status(500).json({ error: error.message })
+  broadcastTable('lineups')
+  res.json({ ok: true })
+})
+
+app.delete('/api/lineups/:matchId', adminOnly, async (req, res) => {
+  const { error } = await supabase.from('lineups').delete().eq('match_id', req.params.matchId)
+  if (error) return res.status(500).json({ error: error.message })
+  broadcastTable('lineups')
+  res.json({ ok: true })
+})
+
+// ── Match goals injection (dev/testing) ───────────────────────
+app.put('/api/match-goals/:matchId', adminOnly, async (req, res) => {
+  const { home_team_id = 1, away_team_id = 2, goals = [] } = req.body ?? {}
+  const row = { match_id: req.params.matchId, home_team_id, away_team_id, goals, ts: Date.now() }
+  const { error } = await supabase.from('match_goals').upsert(row, { onConflict: 'match_id' })
+  if (error) return res.status(500).json({ error: error.message })
+  broadcastTable('match_goals')
+  res.json({ ok: true })
+})
+
+app.delete('/api/match-goals/:matchId', adminOnly, async (req, res) => {
+  const { error } = await supabase.from('match_goals').delete().eq('match_id', req.params.matchId)
+  if (error) return res.status(500).json({ error: error.message })
+  broadcastTable('match_goals')
+  res.json({ ok: true })
+})
+
+// ── FD Match IDs ─────────────────────────────────────────────
+app.put('/api/fd-match-ids', adminOnly, async (req, res) => {
+  const map = req.body ?? {}
+  const rows = Object.entries(map).map(([match_id, fd_id]) => ({ match_id, fd_id, ts: Date.now() }))
+  if (!rows.length) return res.json({ ok: true, count: 0 })
+  const { error } = await supabase.from('fd_match_ids').upsert(rows, { onConflict: 'match_id' })
+  if (error) return res.status(500).json({ error: error.message })
+  res.json({ ok: true, count: rows.length })
+})
+
+// ── Scorer Picks ──────────────────────────────────────────────
+app.put('/api/scorer-picks/:id', async (req, res) => {
+  const { id } = req.params
+  const { email, match_id, team, player_id, player_name } = req.body ?? {}
+  if (!email || !match_id || !team || !player_id || !player_name) {
+    return res.status(400).json({ error: 'email, match_id, team, player_id, player_name required' })
+  }
+
+  const { data: ko } = await supabase.from('kickoffs').select('kickoff').eq('match_id', match_id).maybeSingle()
+  if (ko?.kickoff && Date.now() >= new Date(ko.kickoff).getTime()) {
+    return res.status(403).json({ error: 'Scorer picks locked — match has already kicked off' })
+  }
+
+  const row = { id, email, match_id, team, player_id, player_name, ts: Date.now() }
+  const { error } = await supabase.from('scorer_picks').upsert(row, { onConflict: 'id' })
+  if (error) return res.status(500).json({ error: error.message })
+  broadcastTable('scorer_picks')
+  res.json({ ok: true })
+})
+
 // ── football-data.org proxy (API key stays server-side) ───────
 app.use('/api/football-data', async (req, res) => {
   const apiKey = process.env.FD_API_KEY
@@ -337,6 +494,16 @@ app.post('/api/scheduler-force', adminOnly, async (_req, res) => {
   res.json(scheduler.status())
 })
 
+app.post('/api/scheduler-sync-schedule', adminOnly, async (_req, res) => {
+  if (!scheduler) return res.status(503).json({ error: 'Scheduler not running (FD_API_KEY not set)' })
+  try {
+    const result = await scheduler.syncSchedule()
+    res.json({ ok: true, ...result, ...scheduler.status() })
+  } catch (err) {
+    res.status(502).json({ error: err.message })
+  }
+})
+
 // ── Serve built frontend in production ───────────────────────
 const distDir = join(__dirname, '..', 'dist')
 if (existsSync(distDir)) {
@@ -351,6 +518,10 @@ const server = app.listen(PORT, () => console.log(`⚽ Pool server on http://loc
 let scheduler = null
 server.once('listening', () => {
   scheduler = startScheduler({ supabase, broadcast, apiKey: process.env.FD_API_KEY })
+  // Sync schedule on startup so kickoffs, FD IDs, and odds are always fresh
+  if (scheduler) {
+    scheduler.syncSchedule().catch(err => console.error('[server] Startup schedule sync failed:', err.message))
+  }
 })
 
 server.on('error', (err) => {

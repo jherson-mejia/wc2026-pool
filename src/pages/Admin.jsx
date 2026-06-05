@@ -13,8 +13,8 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select'
 import { calcTotals } from '@/lib/scoring'
-import { fetchFinishedMatches, mapToPoolResults, fetchSchedule, mapKickoffs } from '@/lib/autoSync'
-import { apiBulkImportPicks } from '@/lib/storage'
+import { fetchFinishedMatches, mapToPoolResults, fetchSchedule, mapKickoffs, mapFdMatchIds, mapMatchMeta } from '@/lib/autoSync'
+import { apiBulkImportPicks, apiSaveFdMatchIds, apiSaveMatchMeta } from '@/lib/storage'
 import { Download, Upload, Trash2, CheckCircle, Users, RefreshCw, Pencil, ChevronDown, X, Check, Clock, Zap } from 'lucide-react'
 
 // ── Enter Results ─────────────────────────────────────────────
@@ -711,10 +711,14 @@ function SyncTab() {
       const apiMatches  = await fetchSchedule()
       setLog(l => [...l, `API returned ${apiMatches.length} total match(es)`])
       const newKickoffs = mapKickoffs(apiMatches, koMatches)
+      const newFdIds    = mapFdMatchIds(apiMatches, koMatches)
+      const newMeta     = mapMatchMeta(apiMatches, koMatches)
       const count       = Object.keys(newKickoffs).length
       if (count === 0) { setLog(l => [...l, 'No kickoff times matched — check team names']); return }
-      await saveKickoffs(newKickoffs)
-      setLog(l => [...l, `✓ Stored kickoff times for ${count} match(es)`])
+      await Promise.all([saveKickoffs(newKickoffs), apiSaveFdMatchIds(newFdIds), apiSaveMatchMeta(newMeta)])
+      const fdCount   = Object.keys(newFdIds).length
+      const metaCount = Object.keys(newMeta).length
+      setLog(l => [...l, `✓ Kickoffs: ${count}, FD IDs: ${fdCount}, Odds: ${metaCount}`])
       toast({ title: `Schedule synced — ${count} kickoff times saved ✓` })
     } catch (e) {
       toast({ title: e.message, variant: 'destructive' })

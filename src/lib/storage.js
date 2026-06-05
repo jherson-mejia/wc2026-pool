@@ -104,6 +104,29 @@ export async function apiSaveKickoffs(map) {
   })
 }
 
+// ── Match Meta ────────────────────────────────────────────────
+export async function apiSaveMatchMeta(map) {
+  return apiFetch('/api/match-meta', {
+    method: 'PUT', headers: adminHeaders(), body: JSON.stringify(map),
+  })
+}
+
+// ── FD Match IDs ──────────────────────────────────────────────
+export async function apiSaveFdMatchIds(map) {
+  return apiFetch('/api/fd-match-ids', {
+    method: 'PUT', headers: adminHeaders(), body: JSON.stringify(map),
+  })
+}
+
+// ── Scorer Picks ──────────────────────────────────────────────
+export async function apiSaveScorerPick(email, matchId, team, playerId, playerName) {
+  const id = `${email}_${matchId}_${team}`
+  return apiFetch(`/api/scorer-picks/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ email, match_id: matchId, team, player_id: playerId, player_name: playerName }),
+  })
+}
+
 // ── KO Matches ────────────────────────────────────────────────
 export async function apiSetKoMatch(matchId, home, away) {
   return apiFetch(`/api/ko-matches/${encodeURIComponent(matchId)}`, {
@@ -118,13 +141,17 @@ export async function apiDeleteKoMatch(matchId) {
 }
 
 // ── SSE (real-time updates from server) ───────────────────────
-export function listenSSE({ onParticipants, onResults, onKoMatches, onPicks, onKickoffs }) {
+export function listenSSE({ onParticipants, onResults, onKoMatches, onPicks, onKickoffs, onLineups, onScorerPicks, onMatchGoals, onMatchMeta }) {
   const es = new EventSource('/api/events')
   es.addEventListener('participants', e => onParticipants?.(JSON.parse(e.data)))
   es.addEventListener('results',      e => onResults?.(JSON.parse(e.data)))
   es.addEventListener('ko_matches',   e => onKoMatches?.(JSON.parse(e.data)))
   es.addEventListener('picks',        e => onPicks?.(JSON.parse(e.data)))
   es.addEventListener('kickoffs',     e => onKickoffs?.(JSON.parse(e.data)))
+  es.addEventListener('lineups',      e => onLineups?.(JSON.parse(e.data)))
+  es.addEventListener('scorer_picks', e => onScorerPicks?.(JSON.parse(e.data)))
+  es.addEventListener('match_goals',  e => onMatchGoals?.(JSON.parse(e.data)))
+  es.addEventListener('match_meta',   e => onMatchMeta?.(JSON.parse(e.data)))
   es.onerror = () => console.warn('SSE reconnecting…')
   return () => es.close()
 }

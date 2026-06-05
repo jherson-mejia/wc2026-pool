@@ -6,20 +6,26 @@ import {
   apiSavePick, apiSaveResult, apiDeleteResult,
   apiSetKoMatch, apiDeleteKoMatch,
   apiUpdateParticipant, apiDeleteParticipant,
-  apiSaveKickoffs,
+  apiSaveKickoffs, apiSaveScorerPick,
 } from '@/lib/storage'
+// apiSaveMatchMeta is called directly from Admin — no need to import here
 
 const INIT = {
-  ready:        false,
-  poolName:     'World Cup 2026 Pool',
-  user:         null,
-  isAdmin:      false,
-  participants: [],
-  myPicks:      {},
-  allPicks:     {},
-  results:      {},
-  koMatches:    {},
-  kickoffs:     {},
+  ready:         false,
+  poolName:      'World Cup 2026 Pool',
+  user:          null,
+  isAdmin:       false,
+  participants:  [],
+  myPicks:       {},
+  allPicks:      {},
+  results:       {},
+  koMatches:     {},
+  kickoffs:      {},
+  lineups:       {},
+  matchGoals:    {},
+  matchMeta:     {},
+  allScorer:     {},   // { email → { matchId_team → pick } }
+  myScorer:      {},   // { matchId_team → pick }
 }
 
 function reducer(state, action) {
@@ -33,6 +39,13 @@ function reducer(state, action) {
     case 'SET_KO':        return { ...state, koMatches: action.koMatches }
     case 'SET_PARTS':     return { ...state, participants: action.participants }
     case 'SET_KICKOFFS':  return { ...state, kickoffs: action.kickoffs }
+    case 'SET_LINEUPS':   return { ...state, lineups: action.lineups }
+    case 'SET_GOALS':     return { ...state, matchGoals: action.matchGoals }
+    case 'SET_META':      return { ...state, matchMeta: action.matchMeta }
+    case 'SET_SCORER': {
+      const myScorer = action.scorerPicks[state.user?.email] || {}
+      return { ...state, allScorer: action.scorerPicks, myScorer }
+    }
     case 'PATCH_PICK':    return { ...state, myPicks: { ...state.myPicks, [action.matchId]: action.pick } }
     case 'PATCH_RESULT':  return { ...state, results: { ...state.results, [action.matchId]: action.result } }
     case 'DEL_RESULT': {
@@ -80,7 +93,11 @@ export function AppProvider({ children }) {
         onParticipants: participants => dispatch({ type: 'SET_PARTS', participants }),
         onResults:      results      => dispatch({ type: 'SET_RESULTS', results }),
         onKoMatches:    koMatches    => dispatch({ type: 'SET_KO', koMatches }),
-        onKickoffs:     kickoffs     => dispatch({ type: 'SET_KICKOFFS', kickoffs }),
+        onKickoffs:    kickoffs     => dispatch({ type: 'SET_KICKOFFS', kickoffs }),
+        onLineups:     lineups      => dispatch({ type: 'SET_LINEUPS', lineups }),
+        onMatchGoals:  matchGoals   => dispatch({ type: 'SET_GOALS', matchGoals }),
+        onMatchMeta:   matchMeta    => dispatch({ type: 'SET_META', matchMeta }),
+        onScorerPicks: scorerPicks  => dispatch({ type: 'SET_SCORER', scorerPicks }),
         onPicks: picks => {
           dispatch({ type: 'SET_ALL_PICKS', picks })
           dispatch({ type: 'SET_PICKS', picks: picks[state.user.email] || {} })
@@ -175,12 +192,21 @@ export function AppProvider({ children }) {
     await apiSaveKickoffs(map)
   }
 
+  async function saveScorerPick(matchId, team, playerId, playerName) {
+    if (!state.user || state.isAdmin) return
+    const kickoff = state.kickoffs[matchId]
+    if (kickoff && Date.now() >= new Date(kickoff).getTime()) {
+      throw new Error('Scorer picks locked — match has already kicked off')
+    }
+    await apiSaveScorerPick(state.user.email, matchId, team, playerId, playerName)
+  }
+
   const value = {
     ...state,
     login, loginByEmail, adminLogin, logout,
     savePick, saveResult, clearResult,
     setKoMatch, clearKoMatch,
-    saveKickoffs,
+    saveKickoffs, saveScorerPick,
     updateParticipant, deleteParticipant, adminSavePick,
   }
 

@@ -97,6 +97,64 @@ export function mapKickoffs(apiMatches, koMatches = {}) {
 }
 
 /**
+ * Build a { matchId → { oddsHome, oddsDraw, oddsAway } } map from API match objects.
+ * Odds are available in the schedule endpoint — no extra API call needed.
+ */
+export function mapMatchMeta(apiMatches, koMatches = {}) {
+  const meta = {}
+  for (const m of apiMatches) {
+    if (!m.odds) continue
+    const apiHome     = normalize(m.homeTeam?.name ?? '')
+    const apiAway     = normalize(m.awayTeam?.name ?? '')
+    const apiGroup    = parseGroup(m.group)
+    const apiMatchday = m.matchday ?? null
+
+    let matchId = null
+    if (m.stage === 'GROUP_STAGE') {
+      const gm = findGroupMatch(apiHome, apiAway, apiGroup, apiMatchday)
+      if (gm) matchId = gm.id
+    } else {
+      const koEntry = Object.entries(koMatches).find(([, km]) => km.home === apiHome && km.away === apiAway)
+      if (koEntry) matchId = koEntry[0]
+    }
+    if (!matchId) continue
+
+    meta[matchId] = {
+      odds_home: m.odds.homeWin ?? null,
+      odds_draw: m.odds.draw    ?? null,
+      odds_away: m.odds.awayWin ?? null,
+    }
+  }
+  return meta
+}
+
+/**
+ * Build a { matchId → fdMatchId } map from API match objects.
+ * Used by the server scheduler to call /matches/:fdId for lineups.
+ */
+export function mapFdMatchIds(apiMatches, koMatches = {}) {
+  const fdMatchIds = {}
+  for (const m of apiMatches) {
+    if (!m.id) continue
+    const apiHome     = normalize(m.homeTeam?.name ?? '')
+    const apiAway     = normalize(m.awayTeam?.name ?? '')
+    const apiGroup    = parseGroup(m.group)
+    const apiMatchday = m.matchday ?? null
+
+    if (m.stage === 'GROUP_STAGE') {
+      const gm = findGroupMatch(apiHome, apiAway, apiGroup, apiMatchday)
+      if (gm) fdMatchIds[gm.id] = m.id
+    } else {
+      const koEntry = Object.entries(koMatches).find(
+        ([, km]) => km.home === apiHome && km.away === apiAway
+      )
+      if (koEntry) fdMatchIds[koEntry[0]] = m.id
+    }
+  }
+  return fdMatchIds
+}
+
+/**
  * Maps API match objects to pool result objects.
  * Returns an array of { matchId, home, away, winner }.
  */

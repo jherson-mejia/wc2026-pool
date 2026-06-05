@@ -33,6 +33,11 @@ const STEPS = [
     title: 'Points add up',
     body: 'Points are awarded instantly when the admin enters the final score. Higher-stakes rounds are worth more.',
   },
+  {
+    icon: Zap,
+    title: 'Pick a scorer',
+    body: 'When the official lineup is released (~55 min before kickoff), you can pick one goal scorer per team. +3 pts if they score.',
+  },
 ]
 
 export default function HowItWorks() {
@@ -88,6 +93,14 @@ export default function HowItWorks() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Scorer note */}
+          <div className="flex gap-2 rounded-lg border border-[#FFD706]/20 bg-[#FFD706]/5 px-3 py-2.5">
+            <span className="text-sm">⚽</span>
+            <p className="text-xs text-[#CCC9B8] leading-relaxed">
+              <span className="font-bold text-[#FFD706]">Scorer picks:</span> Pick one goal scorer per team per match. Opens when the official lineup drops (~55 min before kickoff), locks at kickoff. +3 pts if your player scores.
+            </p>
           </div>
 
           {/* Tiebreaker note */}

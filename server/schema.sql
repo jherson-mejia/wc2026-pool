@@ -46,6 +46,65 @@ create table if not exists ko_matches (
   ts         bigint
 );
 
+-- ── fd_match_ids ──────────────────────────────────────────────
+-- Maps pool match IDs → football-data.org match IDs.
+-- Populated when admin syncs schedule. Used by scheduler to fetch lineups.
+create table if not exists fd_match_ids (
+  match_id text    primary key,
+  fd_id    integer not null,
+  ts       bigint
+);
+
+-- ── lineups ───────────────────────────────────────────────────
+-- Fetched from FD API ~55 min before kickoff. Opens scorer picks.
+create table if not exists lineups (
+  match_id     text    primary key,
+  home_team_id integer,
+  away_team_id integer,
+  home_lineup  jsonb,
+  home_bench   jsonb,
+  away_lineup  jsonb,
+  away_bench   jsonb,
+  fetched_at   bigint
+);
+
+-- ── match_goals ───────────────────────────────────────────────
+-- Goals per match, populated from runSync after match finishes.
+create table if not exists match_goals (
+  match_id     text    primary key,
+  home_team_id integer,
+  away_team_id integer,
+  goals        jsonb,
+  ts           bigint
+);
+
+-- ── scorer_picks ──────────────────────────────────────────────
+-- One row per (user × match × team). id = "{email}_{matchId}_{team}".
+create table if not exists scorer_picks (
+  id          text    primary key,
+  email       text    not null,
+  match_id    text    not null,
+  team        text    not null,
+  player_id   integer not null,
+  player_name text    not null,
+  ts          bigint
+);
+
+create index if not exists scorer_picks_email_idx    on scorer_picks (email);
+create index if not exists scorer_picks_match_id_idx on scorer_picks (match_id);
+
+-- ── match_meta ─────────────────────────────────────────────────
+-- Venue + referee (from lineup fetch) + odds (from schedule sync).
+create table if not exists match_meta (
+  match_id   text    primary key,
+  venue      text,
+  referee    text,
+  odds_home  real,
+  odds_draw  real,
+  odds_away  real,
+  ts         bigint
+);
+
 -- ================================================================
 -- Row Level Security
 -- We use the service_role key server-side (bypasses RLS), so RLS
@@ -56,6 +115,11 @@ alter table participants disable row level security;
 alter table picks        disable row level security;
 alter table results      disable row level security;
 alter table ko_matches   disable row level security;
+alter table fd_match_ids disable row level security;
+alter table lineups      disable row level security;
+alter table match_goals  disable row level security;
+alter table scorer_picks disable row level security;
+alter table match_meta   disable row level security;
 
 -- ================================================================
 -- Realtime

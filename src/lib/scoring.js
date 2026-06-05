@@ -1,5 +1,7 @@
 import { GROUP_MATCHES, GROUP_SCORING, KO_ROUNDS } from '@/data/worldcup'
 
+export const SCORER_POINTS = 3
+
 export function calcMatchPoints(pick, result, roundId) {
   if (!pick || !result) return 0
   if (pick.home == null || pick.away == null) return 0
@@ -32,7 +34,17 @@ export function calcMatchPoints(pick, result, roundId) {
   return pickWinner && pickWinner === actualWinner ? scoring.result : 0
 }
 
-export function calcTotals(picks = {}, results = {}) {
+export function calcScorerPoints(scorerPick, matchGoals) {
+  if (!scorerPick || !matchGoals?.goals) return 0
+  const teamId = scorerPick.team === 'home' ? matchGoals.homeTeamId : matchGoals.awayTeamId
+  if (!teamId) return 0
+  const scored = matchGoals.goals.some(
+    g => g.scorer_id === scorerPick.playerId && g.team_id === teamId
+  )
+  return scored ? SCORER_POINTS : 0
+}
+
+export function calcTotals(picks = {}, results = {}, scorerPicks = {}, matchGoals = {}) {
   let pts = 0, correct = 0, exact = 0
 
   GROUP_MATCHES.forEach(m => {
@@ -43,6 +55,11 @@ export function calcTotals(picks = {}, results = {}) {
       pts += v
       if (v >= GROUP_SCORING.result) correct++
       if (v >= GROUP_SCORING.exact)  exact++
+    }
+    for (const team of ['home', 'away']) {
+      const sp = scorerPicks[`${m.id}_${team}`]
+      const mg = matchGoals[m.id]
+      if (sp && mg) pts += calcScorerPoints(sp, mg)
     }
   })
 
@@ -56,6 +73,11 @@ export function calcTotals(picks = {}, results = {}) {
         pts += v
         if (v >= round.scoring.result) correct++
         if (v >= round.scoring.exact)  exact++
+      }
+      for (const team of ['home', 'away']) {
+        const sp = scorerPicks[`${mid}_${team}`]
+        const mg = matchGoals[mid]
+        if (sp && mg) pts += calcScorerPoints(sp, mg)
       }
     }
   })

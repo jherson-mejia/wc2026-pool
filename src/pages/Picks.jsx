@@ -9,7 +9,7 @@ import KnockoutMatchCard from '@/components/KnockoutMatchCard'
 import HowItWorks from '@/components/HowItWorks'
 import { cn } from '@/lib/utils'
 import Countdown from '@/components/Countdown'
-import { calcTotals, calcMatchPoints } from '@/lib/scoring'
+import { calcTotals, calcMatchPoints, calcScorerPoints, SCORER_POINTS } from '@/lib/scoring'
 
 // ── Next-match ticking countdown ─────────────────────────────
 function TickingCountdown({ kickoff }) {
@@ -37,8 +37,60 @@ function TickingCountdown({ kickoff }) {
   )
 }
 
+// ── Scorer picker for one team ────────────────────────────────
+function ScorerPicker({ lineup, bench, pick, locked, matchGoals, teamId, onSave }) {
+  const players = [...(lineup ?? []), ...(bench ?? [])]
+  if (!players.length) return null
+
+  if (locked) {
+    if (!pick) return <span className="text-[10px] text-[#807D73] italic">No scorer pick</span>
+    const correct = matchGoals
+      ? matchGoals.goals?.some(g => g.scorer_id === pick.playerId && g.team_id === teamId)
+      : null
+    return (
+      <span className={cn(
+        'text-[11px] font-semibold truncate max-w-full',
+        correct === true  ? 'text-[#22c55e]'
+        : correct === false ? 'text-[#807D73]'
+        : 'text-[#FFFDF2]',
+      )}>
+        {correct === true && '✓ '}
+        {pick.playerName}
+        {correct === true && ` +${SCORER_POINTS}`}
+      </span>
+    )
+  }
+
+  return (
+    <select
+      className="w-full text-[11px] bg-[#1A1A17] border border-[#32312D] rounded px-1.5 py-1 text-[#FFFDF2] focus:outline-none focus:border-[#FFD706]/50 truncate"
+      value={pick?.playerId ?? ''}
+      onChange={e => {
+        const player = players.find(p => String(p.id) === e.target.value)
+        if (player) onSave(player.id, player.name)
+      }}
+    >
+      <option value="">⚽ Pick scorer…</option>
+      {lineup?.length > 0 && (
+        <optgroup label="Starting XI">
+          {lineup.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </optgroup>
+      )}
+      {bench?.length > 0 && (
+        <optgroup label="Bench">
+          {bench.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </optgroup>
+      )}
+    </select>
+  )
+}
+
 // ── Compact pick row (schedule-tab style with inline score input) ─
-function PickRow({ match, pick = {}, result, kickoff, onSave, isNext }) {
+function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, myScorerHome, myScorerAway, matchGoals, matchMeta, onSaveScorer }) {
   const homeRef  = useRef(null)
   const awayRef  = useRef(null)
   const timerRef = useRef(null)
@@ -69,64 +121,117 @@ function PickRow({ match, pick = {}, result, kickoff, onSave, isNext }) {
     ? new Date(kickoff).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
     : '–'
 
+  const hasLineup = lineup != null
+
   return (
-    <div className={cn('flex items-center gap-2 rounded-xl border px-3 py-2.5 transition-all', borderCls)}>
-      {/* Time */}
-      <div className="text-[11px] text-[#807D73] shrink-0 w-14 tabular-nums">{time}</div>
+    <div className={cn('rounded-xl border px-3 py-2.5 transition-all', borderCls)}>
+      {/* Main score row */}
+      <div className="flex items-center gap-2">
+        {/* Time */}
+        <div className="text-[11px] text-[#807D73] shrink-0 w-14 tabular-nums">{time}</div>
 
-      {/* Home */}
-      <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
-        <span className="text-xs font-semibold text-[#FFFDF2] truncate text-right">{match.home}</span>
-        <span className="text-base leading-none shrink-0">{getFlag(match.home)}</span>
-      </div>
+        {/* Home */}
+        <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
+          <span className="text-xs font-semibold text-[#FFFDF2] truncate text-right">{match.home}</span>
+          <span className="text-base leading-none shrink-0">{getFlag(match.home)}</span>
+        </div>
 
-      {/* Score */}
-      <div className="flex items-center gap-1 shrink-0">
-        {locked ? (
-          <>
-            <span className={cn('w-8 h-7 flex items-center justify-center text-sm tabular-nums', scoreColor)}>
-              {hasPick ? pick.home : '–'}
+        {/* Score */}
+        <div className="flex items-center gap-1 shrink-0">
+          {locked ? (
+            <>
+              <span className={cn('w-8 h-7 flex items-center justify-center text-sm tabular-nums', scoreColor)}>
+                {hasPick ? pick.home : '–'}
+              </span>
+              <span className="text-[#807D73] text-xs font-bold">–</span>
+              <span className={cn('w-8 h-7 flex items-center justify-center text-sm tabular-nums', scoreColor)}>
+                {hasPick ? pick.away : '–'}
+              </span>
+            </>
+          ) : (
+            <>
+              <input ref={homeRef} type="number" min="0" max="99"
+                defaultValue={hasPick ? pick.home : ''} placeholder="0"
+                className="score-input-sm" onChange={queue} />
+              <span className="text-[#807D73] text-xs font-bold">–</span>
+              <input ref={awayRef} type="number" min="0" max="99"
+                defaultValue={hasPick ? pick.away : ''} placeholder="0"
+                className="score-input-sm" onChange={queue} />
+            </>
+          )}
+        </div>
+
+        {/* Away */}
+        <div className="flex items-center gap-1.5 flex-1 justify-start min-w-0">
+          <span className="text-base leading-none shrink-0">{getFlag(match.away)}</span>
+          <span className="text-xs font-semibold text-[#FFFDF2] truncate">{match.away}</span>
+        </div>
+
+        {/* Right: pts earned or group badge */}
+        <div className="shrink-0 min-w-[2rem] text-right">
+          {pts != null ? (
+            <span className={cn('text-xs font-bold tabular-nums', isExact ? 'text-[#FFD706]' : isCorrect ? 'text-[#22c55e]' : 'text-[#807D73]')}>
+              {pts > 0 ? `+${pts}` : '0'}
             </span>
-            <span className="text-[#807D73] text-xs font-bold">–</span>
-            <span className={cn('w-8 h-7 flex items-center justify-center text-sm tabular-nums', scoreColor)}>
-              {hasPick ? pick.away : '–'}
-            </span>
-          </>
-        ) : (
-          <>
-            <input ref={homeRef} type="number" min="0" max="99"
-              defaultValue={hasPick ? pick.home : ''} placeholder="0"
-              className="score-input-sm" onChange={queue} />
-            <span className="text-[#807D73] text-xs font-bold">–</span>
-            <input ref={awayRef} type="number" min="0" max="99"
-              defaultValue={hasPick ? pick.away : ''} placeholder="0"
-              className="score-input-sm" onChange={queue} />
-          </>
-        )}
+          ) : (
+            <span className="text-[10px] text-[#807D73]">{`G${match.group}`}</span>
+          )}
+        </div>
       </div>
 
-      {/* Away */}
-      <div className="flex items-center gap-1.5 flex-1 justify-start min-w-0">
-        <span className="text-base leading-none shrink-0">{getFlag(match.away)}</span>
-        <span className="text-xs font-semibold text-[#FFFDF2] truncate">{match.away}</span>
-      </div>
+      {/* Odds — shown before kickoff when available */}
+      {!locked && matchMeta?.oddsHome != null && (
+        <div className="flex items-center justify-center gap-3 mt-1.5 text-[10px] text-[#807D73]">
+          <span>H <span className="text-[#FFFDF2] tabular-nums">{matchMeta.oddsHome}</span></span>
+          <span>D <span className="text-[#FFFDF2] tabular-nums">{matchMeta.oddsDraw}</span></span>
+          <span>A <span className="text-[#FFFDF2] tabular-nums">{matchMeta.oddsAway}</span></span>
+        </div>
+      )}
 
-      {/* Right: pts earned or group badge */}
-      <div className="shrink-0 min-w-[2rem] text-right">
-        {pts != null ? (
-          <span className={cn('text-xs font-bold tabular-nums', isExact ? 'text-[#FFD706]' : isCorrect ? 'text-[#22c55e]' : 'text-[#807D73]')}>
-            {pts > 0 ? `+${pts}` : '0'}
-          </span>
-        ) : (
-          <span className="text-[10px] text-[#807D73]">{`G${match.group}`}</span>
-        )}
-      </div>
+      {/* Scorer picks — shown when lineup is available */}
+      {hasLineup && (
+        <div className="mt-2 pt-2 border-t border-[#32312D]/50 space-y-2">
+          {/* Venue + referee */}
+          {(matchMeta?.venue || matchMeta?.referee) && (
+            <div className="flex items-center justify-between text-[10px] text-[#807D73]">
+              {matchMeta.venue   && <span>🏟 {matchMeta.venue}</span>}
+              {matchMeta.referee && <span>Ref: {matchMeta.referee}</span>}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-[10px] text-[#807D73] uppercase tracking-wide">{match.home} scorer</span>
+              <ScorerPicker
+                lineup={lineup.homeLineup}
+                bench={lineup.homeBench}
+                pick={myScorerHome}
+                locked={locked}
+                matchGoals={matchGoals}
+                teamId={lineup.homeTeamId}
+                onSave={(playerId, playerName) => onSaveScorer?.(match.id, 'home', playerId, playerName)}
+              />
+            </div>
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-[10px] text-[#807D73] uppercase tracking-wide">{match.away} scorer</span>
+              <ScorerPicker
+                lineup={lineup.awayLineup}
+                bench={lineup.awayBench}
+                pick={myScorerAway}
+                locked={locked}
+                matchGoals={matchGoals}
+                teamId={lineup.awayTeamId}
+                onSave={(playerId, playerName) => onSaveScorer?.(match.id, 'away', playerId, playerName)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 // ── Single match-day section ──────────────────────────────────
-function DaySection({ label, sublabel, isToday, allPast, hasNext, matches, myPicks, results, kickoffs, onSave, nextMatchId }) {
+function DaySection({ label, sublabel, isToday, allPast, hasNext, matches, myPicks, results, kickoffs, onSave, nextMatchId, lineups, myScorer, matchGoals, matchMeta, onSaveScorer }) {
   const [open, setOpen] = useState(isToday || hasNext)
 
   // Only show: picked matches OR upcoming (not yet locked) matches
@@ -193,6 +298,12 @@ function DaySection({ label, sublabel, isToday, allPast, hasNext, matches, myPic
               kickoff={kickoffs[m.id]}
               onSave={onSave}
               isNext={m.id === nextMatchId}
+              lineup={lineups?.[m.id]}
+              myScorerHome={myScorer?.[`${m.id}_home`]}
+              myScorerAway={myScorer?.[`${m.id}_away`]}
+              matchGoals={matchGoals?.[m.id]}
+              matchMeta={matchMeta?.[m.id]}
+              onSaveScorer={onSaveScorer}
             />
           ))}
         </div>
@@ -202,12 +313,19 @@ function DaySection({ label, sublabel, isToday, allPast, hasNext, matches, myPic
 }
 
 // ── Chronological match-day view ──────────────────────────────
-function MatchDayView({ myPicks, results, kickoffs, onSave }) {
-  const sorted = useMemo(() => [...GROUP_MATCHES].sort((a, b) => {
-    const ka = kickoffs[a.id] ? new Date(kickoffs[a.id]).getTime() : Infinity
-    const kb = kickoffs[b.id] ? new Date(kickoffs[b.id]).getTime() : Infinity
-    return ka - kb
-  }), [kickoffs])
+const DEV_MATCH = import.meta.env.DEV
+  ? { id: 'DEV_TEST', group: 'DEV', home: 'Home XI', away: 'Away XI', matchday: 1, round: 'group', simultaneous: false }
+  : null
+
+function MatchDayView({ myPicks, results, kickoffs, onSave, lineups, myScorer, matchGoals, matchMeta, onSaveScorer }) {
+  const sorted = useMemo(() => {
+    const base = DEV_MATCH ? [DEV_MATCH, ...GROUP_MATCHES] : [...GROUP_MATCHES]
+    return base.sort((a, b) => {
+      const ka = kickoffs[a.id] ? new Date(kickoffs[a.id]).getTime() : Infinity
+      const kb = kickoffs[b.id] ? new Date(kickoffs[b.id]).getTime() : Infinity
+      return ka - kb
+    })
+  }, [kickoffs])
 
   const nextMatchId = useMemo(() => {
     const now = Date.now()
@@ -263,6 +381,11 @@ function MatchDayView({ myPicks, results, kickoffs, onSave }) {
           kickoffs={kickoffs}
           onSave={onSave}
           nextMatchId={nextMatchId}
+          lineups={lineups}
+          myScorer={myScorer}
+          matchGoals={matchGoals}
+          matchMeta={matchMeta}
+          onSaveScorer={onSaveScorer}
         />
       ))}
     </div>
@@ -313,8 +436,11 @@ function KORound({ round, myPicks, results, koMatches, kickoffs, onSave, isAdmin
 }
 
 // ── My Progress section ───────────────────────────────────────
-function PicksProgress({ myPicks, results, participants, allPicks, user }) {
-  const { pts, correct, exact } = useMemo(() => calcTotals(myPicks, results), [myPicks, results])
+function PicksProgress({ myPicks, results, participants, allPicks, user, myScorer, matchGoals }) {
+  const { pts, correct, exact } = useMemo(
+    () => calcTotals(myPicks, results, myScorer, matchGoals),
+    [myPicks, results, myScorer, matchGoals],
+  )
 
   const playedIds      = Object.keys(results)
   const pickedOfPlayed = playedIds.filter(id => myPicks[id] != null).length
@@ -325,13 +451,14 @@ function PicksProgress({ myPicks, results, participants, allPicks, user }) {
     const ranked = participants
       .filter(p => p.email !== '__admin__')
       .map(p => {
-        const picks = p.email === user?.email ? myPicks : (allPicks[p.email] || {})
-        return { email: p.email, pts: calcTotals(picks, results).pts }
+        const picks  = p.email === user?.email ? myPicks : (allPicks[p.email] || {})
+        const scorer = p.email === user?.email ? myScorer : {}
+        return { email: p.email, pts: calcTotals(picks, results, scorer, matchGoals).pts }
       })
       .sort((a, b) => b.pts - a.pts)
     const idx = ranked.findIndex(p => p.email === user?.email)
     return idx >= 0 ? idx + 1 : null
-  }, [participants, allPicks, myPicks, results, user])
+  }, [participants, allPicks, myPicks, results, user, myScorer, matchGoals])
 
   const totalPlayed = playedIds.length
 
@@ -396,7 +523,7 @@ function PicksProgress({ myPicks, results, participants, allPicks, user }) {
 
 // ── Main Picks page ────────────────────────────────────────────
 export default function Picks() {
-  const { myPicks, results, koMatches, kickoffs, user, isAdmin, savePick, participants, allPicks } = useApp()
+  const { myPicks, results, koMatches, kickoffs, user, isAdmin, savePick, participants, allPicks, lineups, myScorer, matchGoals, matchMeta, saveScorerPick } = useApp()
   const { toast } = useToast()
 
   async function handleSave(matchId, home, away, winner) {
@@ -405,6 +532,15 @@ export default function Picks() {
       toast({ title: 'Pick saved ✓' })
     } catch (e) {
       toast({ title: 'Failed to save pick', variant: 'destructive' })
+    }
+  }
+
+  async function handleSaveScorer(matchId, team, playerId, playerName) {
+    try {
+      await saveScorerPick(matchId, team, playerId, playerName)
+      toast({ title: 'Scorer pick saved ✓' })
+    } catch (e) {
+      toast({ title: 'Failed to save scorer pick', variant: 'destructive' })
     }
   }
 
@@ -449,6 +585,8 @@ export default function Picks() {
         participants={participants}
         allPicks={allPicks}
         user={user}
+        myScorer={myScorer}
+        matchGoals={matchGoals}
       />
 
       <Countdown />
@@ -475,6 +613,11 @@ export default function Picks() {
             results={results}
             kickoffs={kickoffs}
             onSave={handleSave}
+            lineups={lineups}
+            myScorer={myScorer}
+            matchGoals={matchGoals}
+            matchMeta={matchMeta}
+            onSaveScorer={handleSaveScorer}
           />
         </TabsContent>
 
