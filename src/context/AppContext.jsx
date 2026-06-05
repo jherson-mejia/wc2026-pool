@@ -109,8 +109,8 @@ export function AppProvider({ children }) {
 
   // ── Actions ───────────────────────────────────────────────────
   async function login(name, email) {
-    await apiLogin(name, email)
-    const user = { name, email: email.toLowerCase() }
+    const { user: participant } = await apiLogin(name, email)
+    const user = { name: participant.name, email: participant.email, userId: participant.user_id }
     LS.set('user', user)
     LS.set('isAdmin', false)
     dispatch({ type: 'LOGIN', user, isAdmin: false })
@@ -118,7 +118,7 @@ export function AppProvider({ children }) {
 
   async function loginByEmail(email) {
     const participant = await apiGetParticipant(email) // throws 404 if not registered
-    const user = { name: participant.name, email: participant.email }
+    const user = { name: participant.name, email: participant.email, userId: participant.user_id }
     LS.set('user', user)
     LS.set('isAdmin', false)
     dispatch({ type: 'LOGIN', user, isAdmin: false })

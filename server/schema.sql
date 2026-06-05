@@ -8,7 +8,8 @@
 create table if not exists participants (
   email      text primary key,
   name       text        not null,
-  joined_at  bigint      default (extract(epoch from now()) * 1000)::bigint
+  joined_at  bigint      default (extract(epoch from now()) * 1000)::bigint,
+  user_id    uuid        not null default gen_random_uuid() unique
 );
 
 -- ── picks ────────────────────────────────────────────────────

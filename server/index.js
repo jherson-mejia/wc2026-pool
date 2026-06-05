@@ -219,8 +219,9 @@ app.post('/api/login', async (req, res) => {
   const row = { email: email.toLowerCase(), name, joined_at: Date.now() }
   const { error } = await supabase.from('participants').upsert(row, { onConflict: 'email' })
   if (error) return res.status(500).json({ error: error.message })
+  const { data: participant } = await supabase.from('participants').select('*').eq('email', row.email).single()
   broadcastTable('participants')
-  res.json({ user: row })
+  res.json({ user: participant ?? row })
 })
 
 app.post('/api/admin-login', (req, res) => {
