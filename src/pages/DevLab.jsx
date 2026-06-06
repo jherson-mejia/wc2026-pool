@@ -87,7 +87,7 @@ function SchedulerPanel() {
   }, [])
 
   if (!status || status.error) return (
-    <div className="text-xs text-[#807D73] p-3">Scheduler not running — set FD_API_KEY in .env</div>
+    <div className="text-xs text-th-muted p-3">Scheduler not running — set FD_API_KEY in .env</div>
   )
 
   const pct = Math.round((status.requestsToday / status.autoBudget) * 100)
@@ -96,26 +96,26 @@ function SchedulerPanel() {
     <div className="space-y-3">
       {/* Budget bar */}
       <div>
-        <div className="flex justify-between text-xs text-[#807D73] mb-1">
+        <div className="flex justify-between text-xs text-th-muted mb-1">
           <span>Budget</span>
-          <span className="font-mono text-[#FFFDF2]">{status.requestsToday} / {status.autoBudget}</span>
+          <span className="font-mono text-th-text">{status.requestsToday} / {status.autoBudget}</span>
         </div>
-        <div className="h-1.5 rounded-full bg-[#32312D] overflow-hidden">
+        <div className="h-1.5 rounded-full bg-th-border overflow-hidden">
           <div className="h-full rounded-full transition-all"
             style={{ width: `${Math.min(pct,100)}%`, background: pct>=90?'#FF4444':pct>=60?'#FF8200':'#FFD706' }} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="bg-[#1a1a18] rounded p-2 border border-[#32312D]">
-          <div className="text-[#807D73]">Next poll</div>
-          <div className="font-semibold text-[#FFFDF2] font-mono">
+        <div className="bg-th-surface-alt rounded p-2 border border-th-border">
+          <div className="text-th-muted">Next poll</div>
+          <div className="font-semibold text-th-text font-mono">
             {status.nextSync ? new Date(status.nextSync).toLocaleTimeString() : '—'}
           </div>
-          <div className="text-[#807D73]">{status.pollsPlanned} planned</div>
+          <div className="text-th-muted">{status.pollsPlanned} planned</div>
         </div>
-        <div className="bg-[#1a1a18] rounded p-2 border border-[#32312D]">
-          <div className="text-[#807D73]">Last sync</div>
-          <div className="font-semibold text-[#FFFDF2] font-mono">
+        <div className="bg-th-surface-alt rounded p-2 border border-th-border">
+          <div className="text-th-muted">Last sync</div>
+          <div className="font-semibold text-th-text font-mono">
             {status.lastSync ? new Date(status.lastSync).toLocaleTimeString() : 'Never'}
           </div>
         </div>
@@ -124,7 +124,7 @@ function SchedulerPanel() {
         <button
           onClick={forceSync}
           disabled={syncing || schedSyncing}
-          className="flex items-center justify-center gap-2 py-2 rounded-lg bg-[#32312D] text-xs font-bold text-[#FFFDF2] hover:bg-[#FFD706] hover:text-[#0D0D0B] transition-colors disabled:opacity-50"
+          className="flex items-center justify-center gap-2 py-2 rounded-lg bg-th-border text-xs font-bold text-th-text hover:bg-[#FFD706] hover:text-[#0D0D0B] transition-colors disabled:opacity-50"
         >
           <RefreshCw className={cn('h-3.5 w-3.5', syncing && 'animate-spin')} />
           {syncing ? 'Syncing…' : 'Sync Results'}
@@ -132,13 +132,13 @@ function SchedulerPanel() {
         <button
           onClick={forceSyncSchedule}
           disabled={syncing || schedSyncing}
-          className="flex items-center justify-center gap-2 py-2 rounded-lg bg-[#32312D] text-xs font-bold text-[#FFFDF2] hover:bg-[#FF8200] hover:text-[#0D0D0B] transition-colors disabled:opacity-50"
+          className="flex items-center justify-center gap-2 py-2 rounded-lg bg-th-border text-xs font-bold text-th-text hover:bg-[#FF8200] hover:text-[#0D0D0B] transition-colors disabled:opacity-50"
         >
           <RefreshCw className={cn('h-3.5 w-3.5', schedSyncing && 'animate-spin')} />
           {schedSyncing ? 'Syncing…' : 'Sync Schedule'}
         </button>
       </div>
-      {schedLog && <div className="text-[10px] text-[#807D73] text-center">{schedLog}</div>}
+      {schedLog && <div className="text-[10px] text-th-muted text-center">{schedLog}</div>}
     </div>
   )
 }
@@ -187,20 +187,20 @@ function ResultInjector({ onResult }) {
     <div className="space-y-3">
       {/* Match selector */}
       <div>
-        <label className="text-[10px] font-bold text-[#807D73] uppercase tracking-wider block mb-1">Match ID</label>
+        <label className="text-[10px] font-bold text-th-muted uppercase tracking-wider block mb-1">Match ID</label>
         <div className="flex gap-2">
           {custom ? (
             <input
               value={matchId}
               onChange={e => setMatchId(e.target.value)}
               placeholder="e.g. GA_1 or r16_1"
-              className="flex-1 rounded border border-[#32312D] bg-[#1a1a18] text-[#FFFDF2] text-xs px-2 py-1.5 font-mono focus:outline-none focus:border-[#FFD706]"
+              className="flex-1 rounded border border-th-border bg-th-surface-alt text-th-text text-xs px-2 py-1.5 font-mono focus:outline-none focus:border-[#FFD706]"
             />
           ) : (
             <select
               value={matchId}
               onChange={e => setMatchId(e.target.value)}
-              className="flex-1 rounded border border-[#32312D] bg-[#1a1a18] text-[#FFFDF2] text-xs px-2 py-1.5 font-mono focus:outline-none focus:border-[#FFD706]"
+              className="flex-1 rounded border border-th-border bg-th-surface-alt text-th-text text-xs px-2 py-1.5 font-mono focus:outline-none focus:border-[#FFD706]"
             >
               <optgroup label="Group Stage">
                 {GROUP_MATCHES.map(m => (
@@ -218,7 +218,7 @@ function ResultInjector({ onResult }) {
           )}
           <button
             onClick={() => setCustom(v => !v)}
-            className="text-[10px] text-[#807D73] hover:text-[#FFFDF2] px-2 border border-[#32312D] rounded transition-colors whitespace-nowrap"
+            className="text-[10px] text-th-muted hover:text-th-text px-2 border border-th-border rounded transition-colors whitespace-nowrap"
           >
             {custom ? 'use list' : 'free text'}
           </button>
@@ -227,22 +227,22 @@ function ResultInjector({ onResult }) {
 
       {/* Score inputs */}
       <div>
-        <label className="text-[10px] font-bold text-[#807D73] uppercase tracking-wider block mb-1">Score</label>
+        <label className="text-[10px] font-bold text-th-muted uppercase tracking-wider block mb-1">Score</label>
         <div className="flex items-center gap-2">
           <input type="number" min="0" max="99" value={home} onChange={e => setHome(e.target.value)}
-            placeholder="0" className="w-14 text-center rounded border border-[#32312D] bg-[#1a1a18] text-[#FFFDF2] text-sm font-bold py-1.5 focus:outline-none focus:border-[#FFD706]" />
-          <span className="text-[#807D73] font-bold">–</span>
+            placeholder="0" className="w-14 text-center rounded border border-th-border bg-th-surface-alt text-th-text text-sm font-bold py-1.5 focus:outline-none focus:border-[#FFD706]" />
+          <span className="text-th-muted font-bold">–</span>
           <input type="number" min="0" max="99" value={away} onChange={e => setAway(e.target.value)}
-            placeholder="0" className="w-14 text-center rounded border border-[#32312D] bg-[#1a1a18] text-[#FFFDF2] text-sm font-bold py-1.5 focus:outline-none focus:border-[#FFD706]" />
+            placeholder="0" className="w-14 text-center rounded border border-th-border bg-th-surface-alt text-th-text text-sm font-bold py-1.5 focus:outline-none focus:border-[#FFD706]" />
         </div>
       </div>
 
       {/* Winner (KO only) */}
       {isKO && (
         <div>
-          <label className="text-[10px] font-bold text-[#807D73] uppercase tracking-wider block mb-1">Winner</label>
+          <label className="text-[10px] font-bold text-th-muted uppercase tracking-wider block mb-1">Winner</label>
           <select value={winner} onChange={e => setWinner(e.target.value)}
-            className="w-full rounded border border-[#32312D] bg-[#1a1a18] text-[#FFFDF2] text-xs px-2 py-1.5 focus:outline-none focus:border-[#FFD706]">
+            className="w-full rounded border border-th-border bg-th-surface-alt text-th-text text-xs px-2 py-1.5 focus:outline-none focus:border-[#FFD706]">
             <option value="">— none (regular time) —</option>
             <option value="home">home</option>
             <option value="away">away</option>
@@ -257,13 +257,13 @@ function ResultInjector({ onResult }) {
           {saving ? 'Setting…' : 'Set Result → broadcast'}
         </button>
         <button onClick={clearResult} disabled={saving}
-          className="px-3 py-2 rounded-lg border border-[#32312D] text-[#807D73] text-xs hover:text-red-400 hover:border-red-400/30 transition-colors disabled:opacity-40">
+          className="px-3 py-2 rounded-lg border border-th-border text-th-muted text-xs hover:text-red-400 hover:border-red-400/30 transition-colors disabled:opacity-40">
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {log && (
-        <div className="text-[11px] font-mono text-[#807D73] bg-[#1a1a18] rounded p-2 border border-[#32312D]">
+        <div className="text-[11px] font-mono text-th-muted bg-th-surface-alt rounded p-2 border border-th-border">
           {log}
         </div>
       )}
@@ -276,7 +276,7 @@ function ScoreImpact({ matchId, home, away, winner }) {
   const { participants, allPicks, myPicks, results, user } = useApp()
 
   if (!matchId || home === '' || away === '') return (
-    <div className="text-xs text-[#807D73] text-center py-4">Set a score above to preview impact</div>
+    <div className="text-xs text-th-muted text-center py-4">Set a score above to preview impact</div>
   )
 
   const testResult = { home: Number(home), away: Number(away), winner: winner || null }
@@ -292,17 +292,17 @@ function ScoreImpact({ matchId, home, away, winner }) {
     })
     .sort((a, b) => b.after - a.after)
 
-  if (!rows.length) return <div className="text-xs text-[#807D73] text-center py-4">No participants yet</div>
+  if (!rows.length) return <div className="text-xs text-th-muted text-center py-4">No participants yet</div>
 
   return (
     <div className="space-y-1">
       {rows.map((r, i) => (
-        <div key={i} className="flex items-center gap-2 text-xs py-1 border-b border-[#32312D]/40 last:border-0">
-          <span className="text-[#807D73] w-4 text-right shrink-0">{i+1}</span>
-          <span className="flex-1 text-[#FFFDF2] truncate">{r.name}</span>
-          <span className="text-[#807D73] tabular-nums">{r.before}</span>
-          <span className="text-[#807D73]">→</span>
-          <span className="font-bold text-[#FFFDF2] tabular-nums">{r.after}</span>
+        <div key={i} className="flex items-center gap-2 text-xs py-1 border-b border-th-border/40 last:border-0">
+          <span className="text-th-muted w-4 text-right shrink-0">{i+1}</span>
+          <span className="flex-1 text-th-text truncate">{r.name}</span>
+          <span className="text-th-muted tabular-nums">{r.before}</span>
+          <span className="text-th-muted">→</span>
+          <span className="font-bold text-th-text tabular-nums">{r.after}</span>
           {r.delta !== 0 && (
             <span className={cn('tabular-nums font-bold', r.delta > 0 ? 'text-[#22c55e]' : 'text-red-400')}>
               {r.delta > 0 ? `+${r.delta}` : r.delta}
@@ -319,13 +319,13 @@ function EventLog({ log, onClear }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs text-[#807D73]">
+        <div className="flex items-center gap-1.5 text-xs text-th-muted">
           <Radio className="h-3 w-3 text-[#22c55e] animate-pulse" />
           Live SSE events
         </div>
-        <button onClick={onClear} className="text-[10px] text-[#807D73] hover:text-[#FFFDF2] transition-colors">clear</button>
+        <button onClick={onClear} className="text-[10px] text-th-muted hover:text-th-text transition-colors">clear</button>
       </div>
-      <div className="h-48 overflow-y-auto space-y-1 font-mono text-[10px] bg-[#080806] rounded-lg border border-[#32312D] p-2">
+      <div className="h-48 overflow-y-auto space-y-1 font-mono text-[10px] bg-th-bg rounded-lg border border-th-border p-2">
         {log.length === 0 && <div className="text-[#3a3835]">Waiting for events…</div>}
         {log.map((entry, i) => (
           <div key={i} className="flex gap-2 items-start">
@@ -334,7 +334,7 @@ function EventLog({ log, onClear }) {
               'font-bold shrink-0',
               entry.ev === 'results'  ? 'text-[#FFD706]' :
               entry.ev === 'picks'    ? 'text-[#FF8200]' :
-              entry.ev === 'error'    ? 'text-red-400'   : 'text-[#807D73]'
+              entry.ev === 'error'    ? 'text-red-400'   : 'text-th-muted'
             )}>{entry.ev}</span>
             <span className="text-[#4a4845] truncate">
               {typeof entry.data === 'string' ? entry.data : JSON.stringify(entry.data).slice(0, 120)}
@@ -374,7 +374,7 @@ function ApiExplorer() {
   return (
     <div className="space-y-3">
       <div>
-        <label className="text-[10px] font-bold text-[#807D73] uppercase tracking-wider block mb-1">
+        <label className="text-[10px] font-bold text-th-muted uppercase tracking-wider block mb-1">
           football-data.org Match ID
         </label>
         <div className="flex gap-2">
@@ -383,7 +383,7 @@ function ApiExplorer() {
             onChange={e => setMatchId(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && fetchMatch()}
             placeholder="e.g. 521614"
-            className="flex-1 rounded border border-[#32312D] bg-[#1a1a18] text-[#FFFDF2] text-xs px-2 py-1.5 font-mono focus:outline-none focus:border-[#FFD706]"
+            className="flex-1 rounded border border-th-border bg-th-surface-alt text-th-text text-xs px-2 py-1.5 font-mono focus:outline-none focus:border-[#FFD706]"
           />
           <button
             onClick={fetchMatch}
@@ -407,8 +407,8 @@ function ApiExplorer() {
       )}
 
       {response !== null && (
-        <div className="rounded bg-[#080806] border border-[#32312D] p-2 max-h-72 overflow-y-auto">
-          <pre className="text-[10px] font-mono text-[#807D73] whitespace-pre-wrap break-all">
+        <div className="rounded bg-th-bg border border-th-border p-2 max-h-72 overflow-y-auto">
+          <pre className="text-[10px] font-mono text-th-muted whitespace-pre-wrap break-all">
             {JSON.stringify(response, null, 2)}
           </pre>
         </div>
@@ -473,11 +473,11 @@ function PickLockTester() {
     <div className="space-y-3">
       {/* Match selector */}
       <div>
-        <label className="text-[10px] font-bold text-[#807D73] uppercase tracking-wider block mb-1">Match</label>
+        <label className="text-[10px] font-bold text-th-muted uppercase tracking-wider block mb-1">Match</label>
         <select
           value={matchId}
           onChange={e => { setMatchId(e.target.value); setLog([]) }}
-          className="w-full rounded border border-[#32312D] bg-[#1a1a18] text-[#FFFDF2] text-xs px-2 py-1.5 font-mono focus:outline-none focus:border-[#FFD706]"
+          className="w-full rounded border border-th-border bg-th-surface-alt text-th-text text-xs px-2 py-1.5 font-mono focus:outline-none focus:border-[#FFD706]"
         >
           <optgroup label="Group Stage">
             {GROUP_MATCHES.map(m => (
@@ -501,7 +501,7 @@ function PickLockTester() {
           ? 'bg-red-900/20 border-red-500/30 text-red-400'
           : currentKickoff
             ? 'bg-[#22c55e]/10 border-[#22c55e]/30 text-[#22c55e]'
-            : 'bg-[#32312D]/30 border-[#32312D] text-[#807D73]',
+            : 'bg-th-border/30 border-th-border text-th-muted',
       )}>
         <Lock className="h-3 w-3 shrink-0" />
         {isLocked
@@ -513,7 +513,7 @@ function PickLockTester() {
 
       {/* Kickoff controls */}
       <div>
-        <label className="text-[10px] font-bold text-[#807D73] uppercase tracking-wider block mb-1">Set Kickoff</label>
+        <label className="text-[10px] font-bold text-th-muted uppercase tracking-wider block mb-1">Set Kickoff</label>
         <div className="grid grid-cols-3 gap-1.5">
           <button onClick={() => setKickoff(-5 * 60_000)}
             className="py-1.5 rounded border border-red-500/30 text-red-400 text-[10px] font-bold hover:bg-red-500/10 transition-colors">
@@ -524,7 +524,7 @@ function PickLockTester() {
             +5 min (open)
           </button>
           <button onClick={clearKickoff}
-            className="py-1.5 rounded border border-[#32312D] text-[#807D73] text-[10px] hover:text-[#FFFDF2] transition-colors">
+            className="py-1.5 rounded border border-th-border text-th-muted text-[10px] hover:text-th-text transition-colors">
             clear
           </button>
         </div>
@@ -532,7 +532,7 @@ function PickLockTester() {
 
       {/* Pick attempt buttons */}
       <div>
-        <label className="text-[10px] font-bold text-[#807D73] uppercase tracking-wider block mb-1">Try Pick (1–0)</label>
+        <label className="text-[10px] font-bold text-th-muted uppercase tracking-wider block mb-1">Try Pick (1–0)</label>
         <div className="grid grid-cols-2 gap-1.5">
           <button onClick={tryPickViaContext}
             className="py-1.5 rounded border border-[#FFD706]/30 text-[#FFD706] text-[10px] font-bold hover:bg-[#FFD706]/10 transition-colors">
@@ -548,9 +548,9 @@ function PickLockTester() {
 
       {/* Log */}
       {log.length > 0 && (
-        <div className="rounded bg-[#080806] border border-[#32312D] p-2 space-y-0.5 max-h-32 overflow-y-auto">
+        <div className="rounded bg-th-bg border border-th-border p-2 space-y-0.5 max-h-32 overflow-y-auto">
           {log.map((l, i) => (
-            <div key={i} className={cn('text-[10px] font-mono', l.includes('✓') ? 'text-[#22c55e]' : l.includes('✗') ? 'text-red-400' : 'text-[#807D73]')}>{l}</div>
+            <div key={i} className={cn('text-[10px] font-mono', l.includes('✓') ? 'text-[#22c55e]' : l.includes('✗') ? 'text-red-400' : 'text-th-muted')}>{l}</div>
           ))}
         </div>
       )}
@@ -683,9 +683,9 @@ function ScorerTester() {
     <div className="space-y-3">
       {/* Match selector */}
       <div>
-        <label className="text-[10px] font-bold text-[#807D73] uppercase tracking-wider block mb-1">Match</label>
+        <label className="text-[10px] font-bold text-th-muted uppercase tracking-wider block mb-1">Match</label>
         <select value={matchId} onChange={e => { setMatchId(e.target.value); setLog(''); setPlayerId('') }}
-          className="w-full rounded border border-[#32312D] bg-[#1a1a18] text-[#FFFDF2] text-xs px-2 py-1.5 font-mono focus:outline-none focus:border-[#FFD706]">
+          className="w-full rounded border border-th-border bg-th-surface-alt text-th-text text-xs px-2 py-1.5 font-mono focus:outline-none focus:border-[#FFD706]">
           <optgroup label="Hidden (dev only — not visible to users)">
             <option value={DEV_TEST_MATCH_ID}>DEV_TEST — hidden sandbox</option>
           </optgroup>
@@ -704,7 +704,7 @@ function ScorerTester() {
 
       {/* Lineup status */}
       <div className="flex items-center justify-between">
-        <span className={cn('text-[10px] font-mono', lineup ? 'text-[#22c55e]' : 'text-[#807D73]')}>
+        <span className={cn('text-[10px] font-mono', lineup ? 'text-[#22c55e]' : 'text-th-muted')}>
           {lineup ? `✓ Lineup: ${(lineup.homeLineup?.length ?? 0) + (lineup.homeBench?.length ?? 0)} home · ${(lineup.awayLineup?.length ?? 0) + (lineup.awayBench?.length ?? 0)} away` : 'No lineup'}
         </span>
         <div className="flex gap-1.5">
@@ -714,7 +714,7 @@ function ScorerTester() {
           </button>
           {lineup && (
             <button onClick={clearLineup} disabled={saving}
-              className="px-2 py-1 rounded border border-[#32312D] text-[#807D73] text-[10px] hover:text-red-400 hover:border-red-400/30 transition-colors">
+              className="px-2 py-1 rounded border border-th-border text-th-muted text-[10px] hover:text-red-400 hover:border-red-400/30 transition-colors">
               <Trash2 className="h-3 w-3" />
             </button>
           )}
@@ -723,9 +723,9 @@ function ScorerTester() {
 
       {/* Goals section — only when lineup is available */}
       {lineup && (
-        <div className="rounded border border-[#32312D] p-2.5 space-y-2">
+        <div className="rounded border border-th-border p-2.5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-[#807D73] uppercase tracking-wider">Add Goal</span>
+            <span className="text-[10px] font-bold text-th-muted uppercase tracking-wider">Add Goal</span>
             {goals?.goals?.length > 0 && (
               <button onClick={clearGoals} disabled={saving}
                 className="text-[10px] text-red-400 hover:text-red-300 transition-colors">
@@ -747,12 +747,12 @@ function ScorerTester() {
 
           <div className="flex gap-1.5">
             <select value={team} onChange={e => { setTeam(e.target.value); setPlayerId('') }}
-              className="rounded border border-[#32312D] bg-[#1a1a18] text-[#FFFDF2] text-xs px-1.5 py-1 focus:outline-none focus:border-[#FFD706]">
+              className="rounded border border-th-border bg-th-surface-alt text-th-text text-xs px-1.5 py-1 focus:outline-none focus:border-[#FFD706]">
               <option value="home">Home</option>
               <option value="away">Away</option>
             </select>
             <select value={playerId} onChange={e => setPlayerId(e.target.value)}
-              className="flex-1 rounded border border-[#32312D] bg-[#1a1a18] text-[#FFFDF2] text-xs px-1.5 py-1 focus:outline-none focus:border-[#FFD706]">
+              className="flex-1 rounded border border-th-border bg-th-surface-alt text-th-text text-xs px-1.5 py-1 focus:outline-none focus:border-[#FFD706]">
               <option value="">Select player…</option>
               {allPlayers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
@@ -765,7 +765,7 @@ function ScorerTester() {
       )}
 
       {log && (
-        <div className={cn('text-[10px] font-mono px-2 py-1.5 rounded border', log.startsWith('✓') ? 'text-[#22c55e] border-[#22c55e]/20 bg-[#22c55e]/5' : log.startsWith('✗') ? 'text-red-400 border-red-400/20 bg-red-400/5' : 'text-[#807D73] border-[#32312D]')}>
+        <div className={cn('text-[10px] font-mono px-2 py-1.5 rounded border', log.startsWith('✓') ? 'text-[#22c55e] border-[#22c55e]/20 bg-[#22c55e]/5' : log.startsWith('✗') ? 'text-red-400 border-red-400/20 bg-red-400/5' : 'text-th-muted border-th-border')}>
           {log}
         </div>
       )}
@@ -792,8 +792,8 @@ export default function DevLab() {
       <div className="flex items-center gap-3 mb-6">
         <FlaskConical className="h-6 w-6 text-[#FFD706]" />
         <div>
-          <h1 className="text-2xl font-extrabold text-[#FFFDF2] tracking-tight">Dev Lab</h1>
-          <p className="text-xs text-[#807D73]">dev environment only — not visible in production</p>
+          <h1 className="text-2xl font-extrabold text-th-text tracking-tight">Dev Lab</h1>
+          <p className="text-xs text-th-muted">dev environment only — not visible in production</p>
         </div>
       </div>
 
@@ -801,32 +801,32 @@ export default function DevLab() {
         {/* Left: tools */}
         <div className="space-y-4">
           {/* Result injector */}
-          <div className="rounded-xl border border-[#32312D] bg-[#13130f] p-4">
-            <h2 className="text-xs font-bold text-[#807D73] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <div className="rounded-xl border border-th-border bg-th-surface p-4">
+            <h2 className="text-xs font-bold text-th-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Zap className="h-3.5 w-3.5 text-[#FFD706]" /> Inject Result
             </h2>
             <ResultInjector onResult={() => setTick(t => t+1)} />
           </div>
 
           {/* Scheduler */}
-          <div className="rounded-xl border border-[#32312D] bg-[#13130f] p-4">
-            <h2 className="text-xs font-bold text-[#807D73] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <div className="rounded-xl border border-th-border bg-th-surface p-4">
+            <h2 className="text-xs font-bold text-th-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <RefreshCw className="h-3.5 w-3.5" /> Scheduler
             </h2>
             <SchedulerPanel />
           </div>
 
           {/* Pick lock tester */}
-          <div className="rounded-xl border border-[#32312D] bg-[#13130f] p-4">
-            <h2 className="text-xs font-bold text-[#807D73] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <div className="rounded-xl border border-th-border bg-th-surface p-4">
+            <h2 className="text-xs font-bold text-th-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Lock className="h-3.5 w-3.5" /> Pick Lock Test
             </h2>
             <PickLockTester />
           </div>
 
           {/* Scorer tester */}
-          <div className="rounded-xl border border-[#32312D] bg-[#13130f] p-4">
-            <h2 className="text-xs font-bold text-[#807D73] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <div className="rounded-xl border border-th-border bg-th-surface p-4">
+            <h2 className="text-xs font-bold text-th-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Zap className="h-3.5 w-3.5 text-[#22c55e]" /> Scorer Test
             </h2>
             <ScorerTester />
@@ -836,21 +836,21 @@ export default function DevLab() {
         {/* Right: live feed + score impact + API explorer */}
         <div className="space-y-4">
           {/* SSE log */}
-          <div className="rounded-xl border border-[#32312D] bg-[#13130f] p-4">
+          <div className="rounded-xl border border-th-border bg-th-surface p-4">
             <EventLog log={log} onClear={clear} />
           </div>
 
           {/* Score impact preview */}
-          <div className="rounded-xl border border-[#32312D] bg-[#13130f] p-4">
-            <h2 className="text-xs font-bold text-[#807D73] uppercase tracking-wider mb-3">
+          <div className="rounded-xl border border-th-border bg-th-surface p-4">
+            <h2 className="text-xs font-bold text-th-muted uppercase tracking-wider mb-3">
               Score Impact Preview
             </h2>
             <ScoreImpact key={tick} matchId={matchId} home={home} away={away} winner={winner} />
           </div>
 
           {/* API explorer */}
-          <div className="rounded-xl border border-[#32312D] bg-[#13130f] p-4">
-            <h2 className="text-xs font-bold text-[#807D73] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <div className="rounded-xl border border-th-border bg-th-surface p-4">
+            <h2 className="text-xs font-bold text-th-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Radio className="h-3.5 w-3.5" /> API Explorer
             </h2>
             <ApiExplorer />

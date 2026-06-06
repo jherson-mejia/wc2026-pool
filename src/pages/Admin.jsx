@@ -62,20 +62,20 @@ function ResultsTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-[#807D73]">Enter the final score for each completed match. Scores update everyone's points instantly.</p>
+      <p className="text-sm text-th-muted">Enter the final score for each completed match. Scores update everyone's points instantly.</p>
 
       {/* Group / Round selector */}
       <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
         {groupTabs.map(id => (
           <button key={id} onClick={() => setGroup(id)}
-            className={`shrink-0 px-3 py-1 rounded-md text-xs font-semibold transition-colors ${group === id ? 'bg-[#FFD706] text-[#0D0D0B]' : 'bg-[#32312D] text-[#807D73] hover:text-[#FFFDF2]'}`}>
+            className={`shrink-0 px-3 py-1 rounded-md text-xs font-semibold transition-colors ${group === id ? 'bg-[#FFD706] text-[#0D0D0B]' : 'bg-th-border text-th-muted hover:text-th-text'}`}>
             Grp {id}
           </button>
         ))}
-        <div className="shrink-0 w-px bg-[#32312D] mx-1" />
+        <div className="shrink-0 w-px bg-th-border mx-1" />
         {KO_ROUNDS.map(r => (
           <button key={r.id} onClick={() => setGroup(r.id)}
-            className={`shrink-0 px-3 py-1 rounded-md text-xs font-semibold transition-colors ${group === r.id ? 'bg-[#FF8200] text-[#0D0D0B]' : 'bg-[#32312D] text-[#807D73] hover:text-[#FFFDF2]'}`}>
+            className={`shrink-0 px-3 py-1 rounded-md text-xs font-semibold transition-colors ${group === r.id ? 'bg-[#FF8200] text-[#0D0D0B]' : 'bg-th-border text-th-muted hover:text-th-text'}`}>
             {r.name}
           </button>
         ))}
@@ -92,13 +92,13 @@ function ResultsTab() {
                 {r && <Badge variant="success"><CheckCircle className="h-3 w-3 mr-1" />Saved</Badge>}
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-sm text-[#807D73] w-24 truncate text-right">{m.home}</span>
+                <span className="text-sm text-th-muted w-24 truncate text-right">{m.home}</span>
                 <Input type="number" min="0" max="99" className="w-14 text-center px-1"
                   value={get(m.id, 'home')} onChange={e => set(m.id, 'home', e.target.value)} placeholder="0" />
-                <span className="text-[#807D73] font-bold">–</span>
+                <span className="text-th-muted font-bold">–</span>
                 <Input type="number" min="0" max="99" className="w-14 text-center px-1"
                   value={get(m.id, 'away')} onChange={e => set(m.id, 'away', e.target.value)} placeholder="0" />
-                <span className="text-sm text-[#807D73] w-24 truncate">{m.away}</span>
+                <span className="text-sm text-th-muted w-24 truncate">{m.away}</span>
               </div>
               <div className="flex justify-end gap-2">
                 {r && <Button variant="ghost" size="sm" onClick={() => doClear(m.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}
@@ -116,7 +116,7 @@ function ResultsTab() {
         const r   = results[mid]
         if (!km?.home) return (
           <Card key={mid} className="opacity-50">
-            <CardContent className="py-3 text-sm text-[#807D73]">Match {i + 1} — set teams first in Knockout Setup</CardContent>
+            <CardContent className="py-3 text-sm text-th-muted">Match {i + 1} — set teams first in Knockout Setup</CardContent>
           </Card>
         )
         return (
@@ -127,13 +127,13 @@ function ResultsTab() {
                 {r && <Badge variant="success"><CheckCircle className="h-3 w-3 mr-1" />Saved</Badge>}
               </div>
               <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-sm text-[#807D73] w-24 truncate text-right">{km.home}</span>
+                <span className="text-sm text-th-muted w-24 truncate text-right">{km.home}</span>
                 <Input type="number" min="0" max="99" className="w-14 text-center px-1"
                   value={get(mid, 'home')} onChange={e => set(mid, 'home', e.target.value)} placeholder="0" />
-                <span className="text-[#807D73] font-bold">–</span>
+                <span className="text-th-muted font-bold">–</span>
                 <Input type="number" min="0" max="99" className="w-14 text-center px-1"
                   value={get(mid, 'away')} onChange={e => set(mid, 'away', e.target.value)} placeholder="0" />
-                <span className="text-sm text-[#807D73] w-24 truncate">{km.away}</span>
+                <span className="text-sm text-th-muted w-24 truncate">{km.away}</span>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <Label className="text-xs">Winner (after ET/pens):</Label>
@@ -146,11 +146,11 @@ function ResultsTab() {
                 </Select>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <Label className="text-xs text-[#807D73]">Penalty shootout (optional):</Label>
+                <Label className="text-xs text-th-muted">Penalty shootout (optional):</Label>
                 <div className="flex items-center gap-2">
                   <Input type="number" min="0" max="99" className="w-14 text-center px-1"
                     value={getPens(mid, 'home')} onChange={e => setPens(mid, 'home', e.target.value)} placeholder="–" />
-                  <span className="text-[#807D73] font-bold">–</span>
+                  <span className="text-th-muted font-bold">–</span>
                   <Input type="number" min="0" max="99" className="w-14 text-center px-1"
                     value={getPens(mid, 'away')} onChange={e => setPens(mid, 'away', e.target.value)} placeholder="–" />
                 </div>
@@ -191,7 +191,7 @@ function KnockoutTab() {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-[#807D73]">Set both teams for a match to immediately unlock it for participants to pick.</p>
+      <p className="text-sm text-th-muted">Set both teams for a match to immediately unlock it for participants to pick.</p>
       {KO_ROUNDS.map(round => (
         <div key={round.id}>
           <h3 className="text-sm font-bold text-[#FFD706] mb-3">{round.name}</h3>
@@ -203,12 +203,12 @@ function KnockoutTab() {
                 <Card key={mid}>
                   <CardContent className="pt-3 pb-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-[#807D73]">Match {i + 1}</span>
+                      <span className="text-xs text-th-muted">Match {i + 1}</span>
                       {km?.home ? <Badge variant="success">✓ {km.home} vs {km.away}</Badge> : <Badge variant="locked">TBD</Badge>}
                     </div>
                     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
                       <Input value={get(mid, 'home')} onChange={e => set(mid, 'home', e.target.value)} placeholder="Home Team" className="h-8 text-sm" />
-                      <span className="text-[#807D73] text-xs font-bold">vs</span>
+                      <span className="text-th-muted text-xs font-bold">vs</span>
                       <Input value={get(mid, 'away')} onChange={e => set(mid, 'away', e.target.value)} placeholder="Away Team" className="h-8 text-sm" />
                     </div>
                     <div className="flex justify-end gap-2">
@@ -256,8 +256,8 @@ function PickEditRow({ matchId, label, pick, result, isKO, km, onSave }) {
   const pts = result ? calcTotals({ [matchId]: pick }, { [matchId]: result }).pts : null
 
   return (
-    <div className="grid grid-cols-[1fr_auto] items-center gap-2 py-1.5 border-b border-[#32312D]/50 last:border-0">
-      <div className="text-xs text-[#807D73] truncate">{label}</div>
+    <div className="grid grid-cols-[1fr_auto] items-center gap-2 py-1.5 border-b border-th-border/50 last:border-0">
+      <div className="text-xs text-th-muted truncate">{label}</div>
       <div className="flex items-center gap-1.5 shrink-0">
         <input
           ref={homeRef}
@@ -265,16 +265,16 @@ function PickEditRow({ matchId, label, pick, result, isKO, km, onSave }) {
           defaultValue={hasPick ? pick.home : ''}
           placeholder="–"
           onChange={queue}
-          className="w-9 text-center rounded border border-[#32312D] bg-[#1a1a18] text-[#FFFDF2] text-xs py-0.5 focus:outline-none focus:border-[#FFD706]"
+          className="w-9 text-center rounded border border-th-border bg-th-surface-alt text-th-text text-xs py-0.5 focus:outline-none focus:border-[#FFD706]"
         />
-        <span className="text-[#807D73] text-xs">–</span>
+        <span className="text-th-muted text-xs">–</span>
         <input
           ref={awayRef}
           type="number" min="0" max="99"
           defaultValue={hasPick ? pick.away : ''}
           placeholder="–"
           onChange={queue}
-          className="w-9 text-center rounded border border-[#32312D] bg-[#1a1a18] text-[#FFFDF2] text-xs py-0.5 focus:outline-none focus:border-[#FFD706]"
+          className="w-9 text-center rounded border border-th-border bg-th-surface-alt text-th-text text-xs py-0.5 focus:outline-none focus:border-[#FFD706]"
         />
         {isKO && km && (
           <Select value={winner} onValueChange={v => { setWinner(v); clearTimeout(timerRef.current); timerRef.current = setTimeout(commit, 200) }}>
@@ -287,7 +287,7 @@ function PickEditRow({ matchId, label, pick, result, isKO, km, onSave }) {
         )}
         {pts != null && <span className="text-[10px] text-[#FFD706] font-bold w-8 text-right">+{pts}</span>}
         {saved && <Check className="h-3 w-3 text-[#52c41a] shrink-0" />}
-        {saving && <span className="text-[10px] text-[#807D73]">…</span>}
+        {saving && <span className="text-[10px] text-th-muted">…</span>}
       </div>
     </div>
   )
@@ -327,9 +327,9 @@ function ParticipantCard({ p, allPicks, myPicks, results, koMatches, user, onDel
   }
 
   return (
-    <div className="rounded-lg border border-[#32312D] overflow-hidden">
+    <div className="rounded-lg border border-th-border overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-[#32312D]/30">
+      <div className="flex items-center gap-3 px-4 py-3 bg-th-border/30">
         <div className="flex-1 min-w-0">
           {editing ? (
             <div className="flex items-center gap-1.5">
@@ -345,26 +345,26 @@ function ParticipantCard({ p, allPicks, myPicks, results, koMatches, user, onDel
             </div>
           ) : (
             <div className="flex items-center gap-2 min-w-0">
-              <span className="font-semibold text-sm text-[#FFFDF2] truncate">{p.name}</span>
-              <button onClick={() => setEditing(true)} className="shrink-0 p-0.5 rounded hover:bg-[#32312D] text-[#807D73] hover:text-[#FFFDF2]">
+              <span className="font-semibold text-sm text-th-text truncate">{p.name}</span>
+              <button onClick={() => setEditing(true)} className="shrink-0 p-0.5 rounded hover:bg-th-border text-th-muted hover:text-th-text">
                 <Pencil className="h-3 w-3" />
               </button>
             </div>
           )}
-          <div className="text-xs text-[#807D73] mt-0.5">{p.email} · {pickCount} picks · {correct} right · {exact} exact</div>
+          <div className="text-xs text-th-muted mt-0.5">{p.email} · {pickCount} picks · {correct} right · {exact} exact</div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           <span className="font-bold text-[#FFD706] text-base">{pts}</span>
           <button
             onClick={handleDelete}
-            className="p-1 rounded hover:bg-red-500/10 text-[#807D73] hover:text-red-400 transition-colors"
+            className="p-1 rounded hover:bg-red-500/10 text-th-muted hover:text-red-400 transition-colors"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => setExpanded(v => !v)}
-            className="p-1 rounded hover:bg-[#32312D] text-[#807D73] transition-colors"
+            className="p-1 rounded hover:bg-th-border text-th-muted transition-colors"
           >
             <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
           </button>
@@ -373,11 +373,11 @@ function ParticipantCard({ p, allPicks, myPicks, results, koMatches, user, onDel
 
       {/* Expanded picks editor */}
       {expanded && (
-        <div className="px-4 py-3 border-t border-[#32312D] space-y-1">
-          <p className="text-[10px] uppercase tracking-wider text-[#807D73] mb-2">Edit Picks — changes save automatically</p>
+        <div className="px-4 py-3 border-t border-th-border space-y-1">
+          <p className="text-[10px] uppercase tracking-wider text-th-muted mb-2">Edit Picks — changes save automatically</p>
 
           {groupPickedMatches.length === 0 && koPickedMatches.length === 0 ? (
-            <p className="text-xs text-[#807D73] py-2">No picks or results yet.</p>
+            <p className="text-xs text-th-muted py-2">No picks or results yet.</p>
           ) : (
             <>
               {groupPickedMatches.map(m => (
@@ -420,13 +420,13 @@ function ParticipantsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm text-[#807D73]">
+      <div className="flex items-center gap-2 text-sm text-th-muted">
         <Users className="h-4 w-4" />
         <span>{parts.length} participant{parts.length !== 1 ? 's' : ''}</span>
       </div>
 
       {parts.length === 0 ? (
-        <Card><CardContent className="py-8 text-center text-sm text-[#807D73]">No participants yet. Share the app!</CardContent></Card>
+        <Card><CardContent className="py-8 text-center text-sm text-th-muted">No participants yet. Share the app!</CardContent></Card>
       ) : (
         <div className="space-y-2">
           {parts.map(p => (
@@ -514,7 +514,7 @@ function BackupTab() {
       <Card>
         <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Download className="h-4 w-4" />Backup Pool Data</CardTitle></CardHeader>
         <CardContent className="pt-0 space-y-3">
-          <p className="text-sm text-[#807D73]">Download a full JSON snapshot: participants, all picks, and results.</p>
+          <p className="text-sm text-th-muted">Download a full JSON snapshot: participants, all picks, and results.</p>
           <Button onClick={download}><Download className="h-4 w-4" />Download Backup</Button>
         </CardContent>
       </Card>
@@ -523,12 +523,12 @@ function BackupTab() {
       <Card>
         <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Upload className="h-4 w-4" />Import Picks</CardTitle></CardHeader>
         <CardContent className="pt-0 space-y-3">
-          <p className="text-sm text-[#807D73]">Upload a backup JSON file to bulk-import picks for all participants. Existing picks are overwritten.</p>
+          <p className="text-sm text-th-muted">Upload a backup JSON file to bulk-import picks for all participants. Existing picks are overwritten.</p>
           <input ref={fileRef} type="file" accept=".json" onChange={handleFile}
-            className="text-xs text-[#807D73] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#32312D] file:text-[#FFFDF2] hover:file:bg-[#FFD706] hover:file:text-[#0D0D0B] file:cursor-pointer file:transition-colors" />
+            className="text-xs text-th-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-th-border file:text-th-text hover:file:bg-[#FFD706] hover:file:text-[#0D0D0B] file:cursor-pointer file:transition-colors" />
           {preview && (
-            <div className="rounded-lg border border-[#32312D] bg-[#32312D]/20 p-3 text-sm space-y-2">
-              <p className="text-[#FFFDF2] font-semibold">
+            <div className="rounded-lg border border-th-border bg-th-border/20 p-3 text-sm space-y-2">
+              <p className="text-th-text font-semibold">
                 {preview.picks.length} picks · {preview.participantCount} participant(s)
               </p>
               <div className="flex gap-2">
@@ -543,7 +543,7 @@ function BackupTab() {
             </div>
           )}
           {importLog.length > 0 && (
-            <pre className="text-xs text-[#807D73] font-mono bg-[#1a1a18] rounded p-2">{importLog.join('\n')}</pre>
+            <pre className="text-xs text-th-muted font-mono bg-th-surface-alt rounded p-2">{importLog.join('\n')}</pre>
           )}
         </CardContent>
       </Card>
@@ -552,7 +552,7 @@ function BackupTab() {
       <Card>
         <CardHeader><CardTitle className="text-sm">Scoring Reference</CardTitle></CardHeader>
         <CardContent className="pt-0">
-          <pre className="text-xs text-[#807D73] font-mono leading-relaxed whitespace-pre-wrap">{
+          <pre className="text-xs text-th-muted font-mono leading-relaxed whitespace-pre-wrap">{
 `Group Stage:    1pt correct result  ·  3pts exact score
 Round of 32:    2pts winner  ·  5pts exact
 Round of 16:    3pts winner  ·  7pts exact
@@ -638,11 +638,11 @@ function SchedulerStatus() {
       <CardContent className="space-y-3">
         {/* Budget bar */}
         <div>
-          <div className="flex justify-between text-xs text-[#807D73] mb-1">
+          <div className="flex justify-between text-xs text-th-muted mb-1">
             <span>Daily budget used</span>
-            <span className="font-semibold text-[#FFFDF2]">{status.requestsToday} / {status.autoBudget} auto</span>
+            <span className="font-semibold text-th-text">{status.requestsToday} / {status.autoBudget} auto</span>
           </div>
-          <div className="h-2 rounded-full bg-[#32312D] overflow-hidden">
+          <div className="h-2 rounded-full bg-th-border overflow-hidden">
             <div
               className="h-full rounded-full transition-all"
               style={{
@@ -651,19 +651,19 @@ function SchedulerStatus() {
               }}
             />
           </div>
-          <p className="text-[10px] text-[#807D73] mt-1">{status.remaining} auto-requests remaining · {status.reserved} reserved for manual</p>
+          <p className="text-[10px] text-th-muted mt-1">{status.remaining} auto-requests remaining · {status.reserved} reserved for manual</p>
         </div>
 
         {/* Stats row */}
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="bg-[#0D0D0B]/60 rounded-lg border border-[#32312D] p-2">
-            <div className="text-[#807D73] mb-0.5 flex items-center gap-1"><Clock className="h-3 w-3" /> Next poll</div>
-            <div className="font-semibold text-[#FFFDF2]">{nextFmt ?? '—'}</div>
-            {status.pollsPlanned > 0 && <div className="text-[10px] text-[#807D73]">{status.pollsPlanned} scheduled today</div>}
+          <div className="bg-th-bg/60 rounded-lg border border-th-border p-2">
+            <div className="text-th-muted mb-0.5 flex items-center gap-1"><Clock className="h-3 w-3" /> Next poll</div>
+            <div className="font-semibold text-th-text">{nextFmt ?? '—'}</div>
+            {status.pollsPlanned > 0 && <div className="text-[10px] text-th-muted">{status.pollsPlanned} scheduled today</div>}
           </div>
-          <div className="bg-[#0D0D0B]/60 rounded-lg border border-[#32312D] p-2">
-            <div className="text-[#807D73] mb-0.5">Last sync</div>
-            <div className="font-semibold text-[#FFFDF2]">{lastFmt ?? 'Never'}</div>
+          <div className="bg-th-bg/60 rounded-lg border border-th-border p-2">
+            <div className="text-th-muted mb-0.5">Last sync</div>
+            <div className="font-semibold text-th-text">{lastFmt ?? 'Never'}</div>
           </div>
         </div>
       </CardContent>
@@ -738,11 +738,11 @@ function SyncTab() {
             <RefreshCw className="h-4 w-4" /> Manual Sync from football-data.org
           </CardTitle>
           <CardDescription className="text-xs">
-            API key lives in the server <code className="bg-[#32312D] px-1 rounded">.env</code> — nothing sent to the browser.
+            API key lives in the server <code className="bg-th-border px-1 rounded">.env</code> — nothing sent to the browser.
             Get a free key at{' '}
             <a href="https://www.football-data.org/client/register" target="_blank" rel="noreferrer"
               className="text-[#FFD706] hover:underline">football-data.org</a>
-            {' '}and set <code className="bg-[#32312D] px-1 rounded">FD_API_KEY</code> in <code className="bg-[#32312D] px-1 rounded">.env</code>.
+            {' '}and set <code className="bg-th-border px-1 rounded">FD_API_KEY</code> in <code className="bg-th-border px-1 rounded">.env</code>.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -758,11 +758,11 @@ function SyncTab() {
           </div>
 
           {kickoffCount > 0 && (
-            <p className="text-xs text-[#807D73]">✓ {kickoffCount} kickoff times stored — picks lock automatically at kickoff</p>
+            <p className="text-xs text-th-muted">✓ {kickoffCount} kickoff times stored — picks lock automatically at kickoff</p>
           )}
 
           {log.length > 0 && (
-            <pre className="text-xs text-[#807D73] font-mono bg-[#1a1a18] rounded-md p-3 max-h-48 overflow-y-auto whitespace-pre-wrap">
+            <pre className="text-xs text-th-muted font-mono bg-th-surface-alt rounded-md p-3 max-h-48 overflow-y-auto whitespace-pre-wrap">
               {log.join('\n')}
             </pre>
           )}
@@ -770,11 +770,11 @@ function SyncTab() {
       </Card>
 
       <Card>
-        <CardContent className="pt-4 space-y-1 text-xs text-[#807D73]">
-          <p>• <strong className="text-[#FFFDF2]">Sync Schedule</strong> — run once before the tournament to lock picks at kickoff</p>
-          <p>• <strong className="text-[#FFFDF2]">Sync Results</strong> — run after each matchday to auto-fill scores</p>
+        <CardContent className="pt-4 space-y-1 text-xs text-th-muted">
+          <p>• <strong className="text-th-text">Sync Schedule</strong> — run once before the tournament to lock picks at kickoff</p>
+          <p>• <strong className="text-th-text">Sync Results</strong> — run after each matchday to auto-fill scores</p>
           <p>• Both are safe to run multiple times — existing data is never overwritten</p>
-          <p>• KO matches sync once teams are set in <strong className="text-[#FFFDF2]">Knockout Setup</strong></p>
+          <p>• KO matches sync once teams are set in <strong className="text-th-text">Knockout Setup</strong></p>
         </CardContent>
       </Card>
     </div>
@@ -785,7 +785,7 @@ function SyncTab() {
 export default function Admin() {
   return (
     <div className="max-w-2xl lg:max-w-3xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-extrabold text-[#FFFDF2] mb-5 tracking-tight">
+      <h1 className="text-2xl font-extrabold text-th-text mb-5 tracking-tight">
         🔧 Admin Panel
       </h1>
       <Tabs defaultValue="results">

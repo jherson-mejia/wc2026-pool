@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Trophy, LogOut, Settings } from 'lucide-react'
+import { Trophy, LogOut, Settings, Sun, Moon } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useApp } from '@/context/AppContext'
+import { useTheme } from '@/context/ThemeContext'
 import { cn } from '@/lib/utils'
 
 const NAV = [
@@ -12,10 +13,11 @@ const NAV = [
 
 export default function Header() {
   const { user, isAdmin, poolName, logout } = useApp()
+  const { theme, toggle } = useTheme()
   const [emblemErr, setEmblemErr] = useState(false)
 
   return (
-    <header className="sticky top-0 z-50 bg-[#0D0D0B]/95 backdrop-blur-md border-b border-[#1A1A17]">
+    <header className="sticky top-0 z-50 bg-th-bg/95 backdrop-blur-md border-b border-th-border">
       {/* Yellow → tangerine gradient accent line */}
       <div
         className="h-0.5 w-full"
@@ -42,20 +44,27 @@ export default function Header() {
             <div className="text-lg font-extrabold leading-tight tracking-tight text-gradient">
               {poolName}
             </div>
-            <div className="text-[10px] text-[#807D73] leading-none mt-0.5 flex items-center gap-1">
+            <div className="text-[10px] text-th-muted leading-none mt-0.5 flex items-center gap-1">
               🇺🇸🇨🇦🇲🇽 · Jun 11 – Jul 19
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1 text-xs text-[#CCC9B8] bg-[#32312D]/60 border border-[#32312D] px-2.5 py-1.5 rounded-full max-w-[120px] sm:max-w-none truncate">
+          <span className="flex items-center gap-1 text-xs text-th-subtle bg-th-border/60 border border-th-border px-2.5 py-1.5 rounded-full max-w-[120px] sm:max-w-none truncate">
             {isAdmin ? '🔧' : '⚽'} <span className="truncate">{isAdmin ? 'Admin' : user?.name}</span>
           </span>
           <button
+            onClick={toggle}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="flex items-center justify-center w-8 h-8 rounded-lg text-th-muted hover:text-th-text hover:bg-th-border/60 transition-all"
+          >
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+          <button
             onClick={logout}
             title="Log out"
-            className="flex items-center justify-center w-8 h-8 rounded-lg text-[#807D73] hover:text-[#FFFDF2] hover:bg-[#32312D]/60 transition-all"
+            className="flex items-center justify-center w-8 h-8 rounded-lg text-th-muted hover:text-th-text hover:bg-th-border/60 transition-all"
           >
             <LogOut className="h-4 w-4" />
           </button>
@@ -71,7 +80,7 @@ export default function Header() {
                 'px-4 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-all flex items-center gap-1.5',
                 isActive
                   ? 'border-[#FFD706] text-[#FFD706]'
-                  : 'border-transparent text-[#807D73] hover:text-[#FFFDF2] hover:border-[#32312D]'
+                  : 'border-transparent text-th-muted hover:text-th-text hover:border-th-border'
               )}>
                 {isActive && <span className="text-[13px]">{emoji}</span>}
                 {label}
@@ -86,7 +95,7 @@ export default function Header() {
                 'px-4 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-all flex items-center gap-1.5',
                 isActive
                   ? 'border-[#FF8200] text-[#FF8200]'
-                  : 'border-transparent text-[#807D73] hover:text-[#FFFDF2] hover:border-[#32312D]'
+                  : 'border-transparent text-th-muted hover:text-th-text hover:border-th-border'
               )}>
                 <Settings className="h-3.5 w-3.5" />
                 Admin

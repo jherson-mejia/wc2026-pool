@@ -44,20 +44,20 @@ export default function HowItWorks() {
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="rounded-xl border border-[#32312D] overflow-hidden mb-5">
+    <div className="rounded-xl border border-th-border overflow-hidden mb-5">
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-4 py-3.5 bg-[#32312D]/30 hover:bg-[#32312D]/60 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3.5 bg-th-border/30 hover:bg-th-border/60 transition-colors"
       >
         <div className="flex items-center gap-2">
           <Info className="h-4 w-4 text-[#FFD706]" />
-          <span className="font-bold text-sm text-[#FFFDF2]">How to Play</span>
+          <span className="font-bold text-sm text-th-text">How to Play</span>
         </div>
-        <ChevronDown className={cn('h-4 w-4 text-[#807D73] transition-transform', open && 'rotate-180')} />
+        <ChevronDown className={cn('h-4 w-4 text-th-muted transition-transform', open && 'rotate-180')} />
       </button>
 
       {open && (
-        <div className="px-4 pt-4 pb-5 bg-[#0D0D0B]/40 space-y-5">
+        <div className="px-4 pt-4 pb-5 bg-th-bg/40 space-y-5">
           {/* Steps */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {STEPS.map(({ icon: Icon, title, body }, i) => (
@@ -66,8 +66,8 @@ export default function HowItWorks() {
                   <Icon className="h-4 w-4 text-[#FFD706]" />
                 </div>
                 <div>
-                  <div className="text-sm font-bold text-[#FFFDF2] mb-0.5">{title}</div>
-                  <div className="text-xs text-[#807D73] leading-relaxed">{body}</div>
+                  <div className="text-sm font-bold text-th-text mb-0.5">{title}</div>
+                  <div className="text-xs text-th-muted leading-relaxed">{body}</div>
                 </div>
               </div>
             ))}
@@ -75,9 +75,9 @@ export default function HowItWorks() {
 
           {/* Scoring table */}
           <div>
-            <div className="text-[11px] font-bold text-[#807D73] uppercase tracking-[0.15em] mb-2.5">Point Values</div>
-            <div className="rounded-lg border border-[#32312D] overflow-hidden">
-              <div className="grid grid-cols-3 text-[10px] font-bold text-[#807D73] uppercase tracking-wider px-3 py-2 bg-[#32312D]/40">
+            <div className="text-[11px] font-bold text-th-muted uppercase tracking-[0.15em] mb-2.5">Point Values</div>
+            <div className="rounded-lg border border-th-border overflow-hidden">
+              <div className="grid grid-cols-3 text-[10px] font-bold text-th-muted uppercase tracking-wider px-3 py-2 bg-th-border/40">
                 <span>Round</span>
                 <span className="text-center">Right result</span>
                 <span className="text-center text-[#FFD706]">Exact score</span>
@@ -85,10 +85,10 @@ export default function HowItWorks() {
               {SCORING.map(({ stage, result, exact }) => (
                 <div
                   key={stage}
-                  className="grid grid-cols-3 text-xs px-3 py-2.5 border-t border-[#32312D]/50 items-center"
+                  className="grid grid-cols-3 text-xs px-3 py-2.5 border-t border-th-border/50 items-center"
                 >
-                  <span className="text-[#CCC9B8] font-medium">{stage}</span>
-                  <span className="text-center font-bold text-[#FFFDF2]">{result} pt{result !== 1 ? 's' : ''}</span>
+                  <span className="text-th-subtle font-medium">{stage}</span>
+                  <span className="text-center font-bold text-th-text">{result} pt{result !== 1 ? 's' : ''}</span>
                   <span className="text-center font-bold text-[#FFD706]">{exact} pts</span>
                 </div>
               ))}
@@ -98,7 +98,7 @@ export default function HowItWorks() {
           {/* Scorer note */}
           <div className="flex gap-2 rounded-lg border border-[#FFD706]/20 bg-[#FFD706]/5 px-3 py-2.5">
             <span className="text-sm">⚽</span>
-            <p className="text-xs text-[#CCC9B8] leading-relaxed">
+            <p className="text-xs text-th-subtle leading-relaxed">
               <span className="font-bold text-[#FFD706]">Scorer picks:</span> Pick one goal scorer per team per match. Opens when the official lineup drops (~55 min before kickoff), locks at kickoff. +3 pts if your player scores.
             </p>
           </div>
@@ -106,7 +106,7 @@ export default function HowItWorks() {
           {/* Tiebreaker note */}
           <div className="flex gap-2 rounded-lg border border-[#FF8200]/20 bg-[#FF8200]/5 px-3 py-2.5">
             <span className="text-sm">💡</span>
-            <p className="text-xs text-[#CCC9B8] leading-relaxed">
+            <p className="text-xs text-th-subtle leading-relaxed">
               <span className="font-bold text-[#FF8200]">Ties:</span> In knockout matches that go to extra time or penalties, only the final result counts — not the score after 90 min. Picking the winner correctly still earns points.
             </p>
           </div>

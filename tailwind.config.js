@@ -8,6 +8,14 @@ export default {
         sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
       },
       colors: {
+        // Theme-aware tokens (CSS variable backed)
+        'th-bg':          'var(--th-bg)',
+        'th-surface':     'var(--th-surface)',
+        'th-surface-alt': 'var(--th-surface-alt)',
+        'th-border':      'var(--th-border)',
+        'th-text':        'var(--th-text)',
+        'th-muted':       'var(--th-muted)',
+        'th-subtle':      'var(--th-subtle)',
         // Recurly brand palette
         recurly: {
           yellow:      '#FFD706',

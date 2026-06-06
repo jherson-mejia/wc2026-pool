@@ -10,7 +10,7 @@ import Bracket from '@/components/Bracket'
 // ── Shared empty ─────────────────────────────────────────────
 function EmptyState({ icon: Icon, msg }) {
   return (
-    <div className="py-16 text-center text-[#807D73]">
+    <div className="py-16 text-center text-th-muted">
       <Icon className="h-8 w-8 mx-auto mb-3 opacity-40" />
       <p className="text-sm">{msg}</p>
     </div>
@@ -21,9 +21,9 @@ function EmptyState({ icon: Icon, msg }) {
 function DateDivider({ label }) {
   return (
     <div className="flex items-center gap-3 my-3">
-      <div className="flex-1 h-px bg-[#32312D]" />
-      <span className="text-[11px] text-[#807D73] uppercase tracking-[0.12em] shrink-0">{label}</span>
-      <div className="flex-1 h-px bg-[#32312D]" />
+      <div className="flex-1 h-px bg-th-border" />
+      <span className="text-[11px] text-th-muted uppercase tracking-[0.12em] shrink-0">{label}</span>
+      <div className="flex-1 h-px bg-th-border" />
     </div>
   )
 }
@@ -123,7 +123,7 @@ function GroupsTab() {
               'shrink-0 w-9 h-9 rounded-lg text-sm font-bold transition-all border',
               g === activeGroup
                 ? 'bg-[#FFD706] text-[#0D0D0B] border-[#FFD706]'
-                : 'bg-transparent text-[#807D73] border-[#32312D] hover:text-[#FFFDF2] hover:border-[#FFFDF2]/30'
+                : 'bg-transparent text-th-muted border-th-border hover:text-th-text hover:border-th-text/30'
             )}
           >
             {g}
@@ -131,9 +131,9 @@ function GroupsTab() {
         ))}
       </div>
 
-      <div className="rounded-xl border border-[#32312D] overflow-x-auto">
+      <div className="rounded-xl border border-th-border overflow-x-auto">
        <div className="min-w-[380px]">
-        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 px-4 py-2.5 bg-[#32312D]/40 text-xs text-[#807D73] uppercase tracking-wider font-semibold">
+        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 px-4 py-2.5 bg-th-border/40 text-xs text-th-muted uppercase tracking-wider font-semibold">
           <span>Team</span>
           <span className="text-center w-7">P</span>
           <span className="text-center w-7">W</span>
@@ -149,14 +149,14 @@ function GroupsTab() {
             <div
               key={row.name}
               className={cn(
-                'grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 px-4 py-3 items-center border-t border-[#32312D] transition-all',
+                'grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 px-4 py-3 items-center border-t border-th-border transition-all',
                 advances ? 'border-l-2 border-l-[#FFD706]/60 bg-[#FFD706]/5' : 'border-l-2 border-l-transparent'
               )}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className="text-sm text-[#807D73] w-4 shrink-0 tabular-nums">{i + 1}</span>
+                <span className="text-sm text-th-muted w-4 shrink-0 tabular-nums">{i + 1}</span>
                 <span className="text-lg leading-none shrink-0">{getFlag(row.name)}</span>
-                <span className="text-sm font-semibold text-[#FFFDF2] truncate">{row.name}</span>
+                <span className="text-sm font-semibold text-th-text truncate">{row.name}</span>
               </div>
               {row.p === 0 ? (
                 <>
@@ -169,12 +169,12 @@ function GroupsTab() {
                 </>
               ) : (
                 <>
-                  <span className="text-sm text-[#FFFDF2] text-center w-7 tabular-nums">{row.p}</span>
-                  <span className="text-sm text-[#FFFDF2] text-center w-7 tabular-nums">{row.w}</span>
-                  <span className="text-sm text-[#FFFDF2] text-center w-7 tabular-nums">{row.d}</span>
-                  <span className="text-sm text-[#FFFDF2] text-center w-7 tabular-nums">{row.l}</span>
+                  <span className="text-sm text-th-text text-center w-7 tabular-nums">{row.p}</span>
+                  <span className="text-sm text-th-text text-center w-7 tabular-nums">{row.w}</span>
+                  <span className="text-sm text-th-text text-center w-7 tabular-nums">{row.d}</span>
+                  <span className="text-sm text-th-text text-center w-7 tabular-nums">{row.l}</span>
                   <span className={cn('text-sm font-semibold text-center w-9 tabular-nums',
-                    row.gd > 0 ? 'text-green-400' : row.gd < 0 ? 'text-red-400' : 'text-[#807D73]'
+                    row.gd > 0 ? 'text-green-400' : row.gd < 0 ? 'text-red-400' : 'text-th-muted'
                   )}>
                     {row.gd > 0 ? `+${row.gd}` : row.gd}
                   </span>
@@ -186,7 +186,7 @@ function GroupsTab() {
         })}
        </div>
       </div>
-      <p className="text-xs text-[#807D73] mt-2 pl-1">Top 2 advance · highlighted in yellow</p>
+      <p className="text-xs text-th-muted mt-2 pl-1">Top 2 advance · highlighted in yellow</p>
     </div>
   )
 }
@@ -233,22 +233,22 @@ function ResultsTab() {
           <DateDivider label={label} />
           <div className="space-y-1.5">
             {items.map(m => (
-              <div key={m.id} className="flex items-center gap-2 rounded-xl border border-[#32312D] bg-[#32312D]/20 px-3 py-2.5">
+              <div key={m.id} className="flex items-center gap-2 rounded-xl border border-th-border bg-th-border/20 px-3 py-2.5">
                 <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
                   <span className={cn(
                     'text-xs truncate text-right',
-                    m.winner === 'HOME_TEAM' ? 'font-bold text-[#FFFDF2]' : 'text-[#807D73]'
+                    m.winner === 'HOME_TEAM' ? 'font-bold text-th-text' : 'text-th-muted'
                   )}>{m.home}</span>
                   <span className="text-base leading-none shrink-0">{getFlag(m.home)}</span>
                 </div>
-                <div className="text-sm font-extrabold text-[#FFFDF2] tabular-nums shrink-0 text-center w-16">
+                <div className="text-sm font-extrabold text-th-text tabular-nums shrink-0 text-center w-16">
                   {m.homeScore} – {m.awayScore}
                 </div>
                 <div className="flex items-center gap-1.5 flex-1 justify-start min-w-0">
                   <span className="text-base leading-none shrink-0">{getFlag(m.away)}</span>
                   <span className={cn(
                     'text-xs truncate',
-                    m.winner === 'AWAY_TEAM' ? 'font-bold text-[#FFFDF2]' : 'text-[#807D73]'
+                    m.winner === 'AWAY_TEAM' ? 'font-bold text-th-text' : 'text-th-muted'
                   )}>{m.away}</span>
                 </div>
               </div>
@@ -306,14 +306,14 @@ function ScheduleTab() {
               return (
                 <div key={m.id} className={cn(
                   'flex items-center gap-2 rounded-xl border px-3 py-2.5',
-                  finished ? 'border-[#32312D] bg-[#32312D]/20' : 'border-[#32312D] bg-[#32312D]/10 opacity-80',
+                  finished ? 'border-th-border bg-th-border/20' : 'border-th-border bg-th-border/10 opacity-80',
                 )}>
                   {/* Time / FT */}
                   <div className="text-[11px] shrink-0 w-16 tabular-nums text-center">
                     {finished
                       ? <span className="text-[#22c55e] font-bold">FT</span>
                       : m.kickoff
-                        ? <span className="text-[#807D73]">{localTime(m.kickoff)}</span>
+                        ? <span className="text-th-muted">{localTime(m.kickoff)}</span>
                         : <span className="text-[#3a3835]">TBD</span>}
                   </div>
 
@@ -321,7 +321,7 @@ function ScheduleTab() {
                   <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
                     <span className={cn(
                       'text-xs truncate text-right',
-                      finished && m.result.winner === 'home' ? 'font-bold text-[#FFFDF2]' : 'font-semibold text-[#FFFDF2]',
+                      finished && m.result.winner === 'home' ? 'font-bold text-th-text' : 'font-semibold text-th-text',
                     )}>{m.home}</span>
                     <span className="text-base leading-none shrink-0">{getFlag(m.home)}</span>
                   </div>
@@ -329,10 +329,10 @@ function ScheduleTab() {
                   {/* Score / vs */}
                   <div className="shrink-0 w-16 text-center">
                     {finished
-                      ? <span className="text-sm font-extrabold text-[#FFFDF2] tabular-nums">
+                      ? <span className="text-sm font-extrabold text-th-text tabular-nums">
                           {m.result.home} – {m.result.away}
                         </span>
-                      : <span className="text-[11px] text-[#807D73]">vs</span>}
+                      : <span className="text-[11px] text-th-muted">vs</span>}
                   </div>
 
                   {/* Away */}
@@ -340,12 +340,12 @@ function ScheduleTab() {
                     <span className="text-base leading-none shrink-0">{getFlag(m.away)}</span>
                     <span className={cn(
                       'text-xs truncate',
-                      finished && m.result.winner === 'away' ? 'font-bold text-[#FFFDF2]' : 'font-semibold text-[#FFFDF2]',
+                      finished && m.result.winner === 'away' ? 'font-bold text-th-text' : 'font-semibold text-th-text',
                     )}>{m.away}</span>
                   </div>
 
                   {/* Group badge */}
-                  <div className="shrink-0 text-[10px] text-[#807D73] bg-[#32312D] border border-[#32312D] rounded-full px-2 py-0.5 leading-none whitespace-nowrap">
+                  <div className="shrink-0 text-[10px] text-th-muted bg-th-border border border-th-border rounded-full px-2 py-0.5 leading-none whitespace-nowrap">
                     G{m.group}
                   </div>
                 </div>
@@ -362,7 +362,7 @@ function ScheduleTab() {
 export default function Tournament() {
   return (
     <div className="max-w-2xl lg:max-w-3xl mx-auto px-4 py-6">
-      <h1 className="text-3xl font-extrabold text-[#FFFDF2] tracking-tight mb-5">Tournament</h1>
+      <h1 className="text-3xl font-extrabold text-th-text tracking-tight mb-5">Tournament</h1>
       <Tabs defaultValue="schedule">
         <TabsList className="mb-1 flex-wrap">
           <TabsTrigger value="schedule">Schedule</TabsTrigger>

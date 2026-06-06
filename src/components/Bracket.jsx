@@ -53,8 +53,8 @@ function BracketMatch({ match, narrow = false }) {
         known
           ? result
             ? 'border-[#2a2925] bg-[#09090700]'
-            : 'border-[#32312D] bg-[#13130f]'
-          : 'border-[#1f1e1b] bg-[#0D0D0B]/30 opacity-60'
+            : 'border-th-border bg-th-surface'
+          : 'border-[#1f1e1b] bg-th-bg/30 opacity-60'
       )}
       style={{ height: CARD_H }}
     >
@@ -68,7 +68,7 @@ function BracketMatch({ match, narrow = false }) {
         </span>
         <span className={cn(
           'text-[10px] leading-tight flex-1 truncate',
-          homeWon ? 'font-bold text-[#FFFDF2]' : 'text-[#807D73]',
+          homeWon ? 'font-bold text-th-text' : 'text-th-muted',
           !home && 'italic text-[#3a3835]'
         )}>
           {homeDisplay}
@@ -93,7 +93,7 @@ function BracketMatch({ match, narrow = false }) {
         </span>
         <span className={cn(
           'text-[10px] leading-tight flex-1 truncate',
-          awayWon ? 'font-bold text-[#FFFDF2]' : 'text-[#807D73]',
+          awayWon ? 'font-bold text-th-text' : 'text-th-muted',
           !away && 'italic text-[#3a3835]'
         )}>
           {awayDisplay}
@@ -158,7 +158,7 @@ function Champion({ match }) {
         <div className="text-sm font-extrabold text-[#FFD706] leading-tight">
           {match.winner}
         </div>
-        <div className="text-[9px] text-[#807D73] uppercase tracking-widest mt-0.5">
+        <div className="text-[9px] text-th-muted uppercase tracking-widest mt-0.5">
           Champion
         </div>
       </div>
@@ -182,9 +182,9 @@ function MobileMatchCard({ match }) {
       'rounded-xl border px-3 py-2.5 transition-all',
       known
         ? result
-          ? 'border-[#2a2925] bg-[#0D0D0B]/90'
-          : 'border-[#32312D] bg-[#13130f]'
-        : 'border-[#1f1e1b] bg-[#0D0D0B]/20 opacity-60'
+          ? 'border-[#2a2925] bg-th-bg/90'
+          : 'border-th-border bg-th-surface'
+        : 'border-[#1f1e1b] bg-th-bg/20 opacity-60'
     )}>
       {/* Home */}
       <div className={cn('flex items-center gap-2 py-1', result && !homeWon && 'opacity-35')}>
@@ -193,7 +193,7 @@ function MobileMatchCard({ match }) {
         </span>
         <span className={cn(
           'text-xs flex-1 truncate',
-          homeWon ? 'font-bold text-[#FFFDF2]' : 'text-[#807D73]',
+          homeWon ? 'font-bold text-th-text' : 'text-th-muted',
           !home && 'italic text-[#3a3835]'
         )}>{homeDisplay}</span>
         {result && (
@@ -212,7 +212,7 @@ function MobileMatchCard({ match }) {
         </span>
         <span className={cn(
           'text-xs flex-1 truncate',
-          awayWon ? 'font-bold text-[#FFFDF2]' : 'text-[#807D73]',
+          awayWon ? 'font-bold text-th-text' : 'text-th-muted',
           !away && 'italic text-[#3a3835]'
         )}>{awayDisplay}</span>
         {result && (
@@ -223,7 +223,7 @@ function MobileMatchCard({ match }) {
       </div>
 
       {result?.homePens != null && (
-        <div className="text-[9px] text-[#807D73] text-center mt-1">
+        <div className="text-[9px] text-th-muted text-center mt-1">
           Pens: {result.homePens}–{result.awayPens}
         </div>
       )}
@@ -253,7 +253,7 @@ function MobileBracket({ bracket }) {
               'shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border',
               r === active
                 ? 'bg-[#FFD706] text-[#0D0D0B] border-[#FFD706]'
-                : 'bg-transparent text-[#807D73] border-[#32312D] hover:text-[#FFFDF2] hover:border-[#FFFDF2]/30'
+                : 'bg-transparent text-th-muted border-th-border hover:text-th-text hover:border-th-text/30'
             )}
           >
             {ROUND_SHORT[r]}
@@ -273,7 +273,7 @@ function MobileBracket({ bracket }) {
           <div className="text-5xl">{getFlag(bracket.final[0].winner)}</div>
           <div className="text-center">
             <div className="text-xl font-extrabold text-[#FFD706]">{bracket.final[0].winner}</div>
-            <div className="text-xs text-[#807D73] uppercase tracking-widest mt-1">World Cup Champion</div>
+            <div className="text-xs text-th-muted uppercase tracking-widest mt-1">World Cup Champion</div>
           </div>
         </div>
       )}
@@ -330,7 +330,7 @@ export default function Bracket() {
 
             {/* 3rd place below bracket */}
             {tpM?.known && (
-              <div className="mt-6 pt-5 border-t border-[#32312D]">
+              <div className="mt-6 pt-5 border-t border-th-border">
                 <p className="text-[9px] font-bold text-[#3a3835] uppercase tracking-[0.15em] mb-3">
                   Third Place Match
                 </p>

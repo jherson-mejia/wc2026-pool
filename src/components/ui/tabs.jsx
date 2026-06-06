@@ -6,7 +6,7 @@ export const Tabs = TabsPrimitive.Root
 export function TabsList({ className, ...props }) {
   return (
     <TabsPrimitive.List
-      className={cn('inline-flex flex-nowrap gap-1 rounded-lg bg-[#32312D] p-1', className)}
+      className={cn('inline-flex flex-nowrap gap-1 rounded-lg bg-th-border p-1', className)}
       {...props}
     />
   )
@@ -16,8 +16,8 @@ export function TabsTrigger({ className, ...props }) {
   return (
     <TabsPrimitive.Trigger
       className={cn(
-        'inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium text-[#807D73] transition-all whitespace-nowrap shrink-0',
-        'hover:text-[#FFFDF2]',
+        'inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium text-th-muted transition-all whitespace-nowrap shrink-0',
+        'hover:text-th-text',
         'data-[state=active]:bg-[#FFD706] data-[state=active]:text-[#0D0D0B] data-[state=active]:font-bold',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD706]',
         className

@@ -67,7 +67,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0D0D0B] relative flex flex-col items-center justify-center px-4 py-12 overflow-hidden">
+    <div className="min-h-screen bg-th-bg relative flex flex-col items-center justify-center px-4 py-12 overflow-hidden">
       {/* Ambient blobs */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-[#FFD706]/5 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-[#FF8200]/4 blur-[100px] pointer-events-none" />
@@ -97,23 +97,23 @@ export default function Login() {
               <Trophy className="h-10 w-10 text-[#0D0D0B]" />
             )}
           </div>
-          <div className="text-[11px] font-bold tracking-[0.25em] uppercase text-[#807D73] mb-2">
+          <div className="text-[11px] font-bold tracking-[0.25em] uppercase text-th-muted mb-2">
             FIFA World Cup 2026
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight leading-none text-[#FFFDF2] mb-1">
+          <h1 className="text-3xl font-extrabold tracking-tight leading-none text-th-text mb-1">
             {poolName}
           </h1>
-          <p className="text-[#807D73] text-sm mt-2.5">🇺🇸 🇨🇦 🇲🇽 · June 11 – July 19</p>
+          <p className="text-th-muted text-sm mt-2.5">🇺🇸 🇨🇦 🇲🇽 · June 11 – July 19</p>
         </div>
 
         {/* Mode toggle */}
-        <div className="flex rounded-xl border border-[#32312D] bg-[#32312D]/20 p-1 mb-4 gap-1">
+        <div className="flex rounded-xl border border-th-border bg-th-border/20 p-1 mb-4 gap-1">
           <button
             onClick={() => switchMode('signin')}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-all ${
               mode === 'signin'
                 ? 'bg-[#FFD706] text-[#0D0D0B]'
-                : 'text-[#807D73] hover:text-[#FFFDF2]'
+                : 'text-th-muted hover:text-th-text'
             }`}
           >
             <LogIn className="h-3.5 w-3.5" />
@@ -124,7 +124,7 @@ export default function Login() {
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-all ${
               mode === 'register'
                 ? 'bg-[#FFD706] text-[#0D0D0B]'
-                : 'text-[#807D73] hover:text-[#FFFDF2]'
+                : 'text-th-muted hover:text-th-text'
             }`}
           >
             <UserPlus className="h-3.5 w-3.5" />
@@ -134,20 +134,20 @@ export default function Login() {
 
         {/* Card */}
         <div
-          className="rounded-2xl border border-[#32312D] bg-[#32312D]/20 p-6 space-y-4 backdrop-blur-sm"
+          className="rounded-2xl border border-th-border bg-th-border/20 p-6 space-y-4 backdrop-blur-sm"
           style={{ borderTop: '2px solid #FFD706' }}
         >
           {mode === 'signin' ? (
             <>
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-bold text-[#CCC9B8] uppercase tracking-wider">Work Email</Label>
+                <Label className="text-[11px] font-bold text-th-subtle uppercase tracking-wider">Work Email</Label>
                 <Input
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="maria@recurly.com"
                   onKeyDown={e => e.key === 'Enter' && handleSignIn()}
-                  className="h-11"
+                  className="h-11 bg-th-surface-alt text-th-text"
                   autoFocus
                 />
               </div>
@@ -158,7 +158,7 @@ export default function Login() {
               >
                 {loading ? 'Signing in…' : <><span>Sign In</span><ArrowRight className="h-4 w-4" /></>}
               </button>
-              <p className="text-xs text-[#807D73] text-center">
+              <p className="text-xs text-th-muted text-center">
                 New to the pool? &nbsp;&nbsp;
                 <button onClick={() => switchMode('register')} className="text-[#FFD706] hover:underline font-semibold">
                   Register here
@@ -168,19 +168,19 @@ export default function Login() {
           ) : (
             <>
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-bold text-[#CCC9B8] uppercase tracking-wider">Your Name</Label>
+                <Label className="text-[11px] font-bold text-th-subtle uppercase tracking-wider">Your Name</Label>
                 <Input
                   value={name}
                   onChange={e => setName(e.target.value)}
                   placeholder="John Doe"
                   onKeyDown={e => e.key === 'Enter' && handleRegister()}
-                  className="h-11"
+                  className="h-11 bg-th-surface-alt text-th-text"
                   autoFocus
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-bold text-[#CCC9B8] uppercase tracking-wider">
-                  Work Email <span className="text-[#807D73] font-normal normal-case tracking-normal">· becomes your ID</span>
+                <Label className="text-[11px] font-bold text-th-subtle uppercase tracking-wider">
+                  Work Email <span className="text-th-muted font-normal normal-case tracking-normal">· becomes your ID</span>
                 </Label>
                 <Input
                   type="email"
@@ -188,7 +188,7 @@ export default function Login() {
                   onChange={e => setEmail(e.target.value)}
                   placeholder="jdoe@recurly.com"
                   onKeyDown={e => e.key === 'Enter' && handleRegister()}
-                  className="h-11"
+                  className="h-11 bg-th-surface-alt text-th-text"
                 />
               </div>
               <button
@@ -198,7 +198,7 @@ export default function Login() {
               >
                 {loading ? 'Joining…' : <><span>Join the Pool</span><ArrowRight className="h-4 w-4" /></>}
               </button>
-              <p className="text-xs text-[#807D73] text-center">
+              <p className="text-xs text-th-muted text-center">
                 Already joined? &nbsp;&nbsp;
                 <button onClick={() => switchMode('signin')} className="text-[#FFD706] hover:underline font-semibold">
                   Sign in
@@ -209,14 +209,14 @@ export default function Login() {
 
           {/* Admin */}
           <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-[#32312D]" />
-            <span className="text-[11px] text-[#807D73]">or</span>
-            <div className="flex-1 h-px bg-[#32312D]" />
+            <div className="flex-1 h-px bg-th-border" />
+            <span className="text-[11px] text-th-muted">or</span>
+            <div className="flex-1 h-px bg-th-border" />
           </div>
 
           <button
             onClick={() => setShowAdmin(v => !v)}
-            className="flex items-center gap-1.5 text-xs text-[#807D73] hover:text-[#FFFDF2] transition-colors"
+            className="flex items-center gap-1.5 text-xs text-th-muted hover:text-th-text transition-colors"
           >
             <Settings className="h-3.5 w-3.5" />
             Admin sign in
@@ -230,12 +230,12 @@ export default function Login() {
                 onChange={e => setAdminPw(e.target.value)}
                 placeholder="Admin password"
                 onKeyDown={e => e.key === 'Enter' && handleAdmin()}
-                className="h-11"
+                className="h-11 bg-th-surface-alt text-th-text"
               />
               <button
                 onClick={handleAdmin}
                 disabled={loading}
-                className="w-full h-10 rounded-lg border border-[#32312D] bg-[#32312D]/60 text-[#FFFDF2] font-semibold text-sm hover:bg-[#32312D] transition-colors disabled:opacity-50"
+                className="w-full h-10 rounded-lg border border-th-border bg-th-border/60 text-th-text font-semibold text-sm hover:bg-th-border transition-colors disabled:opacity-50"
               >
                 {loading ? 'Signing in…' : 'Sign in as Admin'}
               </button>

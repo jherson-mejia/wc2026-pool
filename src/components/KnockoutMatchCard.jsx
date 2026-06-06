@@ -35,15 +35,15 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
   }
 
   const matchNum = matchId.split('_')[1]
-  const scoreColor = isExact ? 'text-[#FFD706]' : isCor ? 'text-[#22c55e]' : 'text-[#807D73]'
+  const scoreColor = isExact ? 'text-[#FFD706]' : isCor ? 'text-[#22c55e]' : 'text-th-muted'
 
   if (!unlocked) {
     return (
-      <div className="rounded-xl border border-[#32312D] bg-[#0D0D0B]/40 p-4 flex items-center gap-3 opacity-40">
-        <Lock className="h-4 w-4 text-[#807D73] shrink-0" />
+      <div className="rounded-xl border border-th-border bg-th-bg/40 p-4 flex items-center gap-3 opacity-40">
+        <Lock className="h-4 w-4 text-th-muted shrink-0" />
         <div>
-          <div className="text-sm font-semibold text-[#807D73]">Match {matchNum}</div>
-          <div className="text-xs text-[#807D73] mt-0.5">Teams TBD — unlocks once admin sets matchup</div>
+          <div className="text-sm font-semibold text-th-muted">Match {matchNum}</div>
+          <div className="text-xs text-th-muted mt-0.5">Teams TBD — unlocks once admin sets matchup</div>
         </div>
       </div>
     )
@@ -54,11 +54,11 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
       'rounded-xl border p-4 transition-all',
       isExact ? 'border-[#FFD706]/40 bg-[#FFD706]/5' :
       isCor   ? 'border-[#22c55e]/30 bg-[#22c55e]/5' :
-      locked  ? 'border-[#32312D] bg-[#0D0D0B]/60' :
-                'border-[#FFD706]/20 bg-[#0D0D0B]/60 hover:border-[#FFD706]/50',
+      locked  ? 'border-th-border bg-th-bg/60' :
+                'border-[#FFD706]/20 bg-th-bg/60 hover:border-[#FFD706]/50',
     )}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-3 text-xs text-[#807D73]">
+      <div className="flex items-center justify-between mb-3 text-xs text-th-muted">
         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
           <span className="font-medium shrink-0">Match {matchNum}</span>
           {ki && (
@@ -90,7 +90,7 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
         {/* Home */}
         <div className="text-center">
           <div className="text-3xl sm:text-4xl leading-none mb-1">{getFlag(km.home)}</div>
-          <div className="text-[10px] sm:text-xs font-bold text-[#FFFDF2] leading-tight px-1 truncate">{km.home}</div>
+          <div className="text-[10px] sm:text-xs font-bold text-th-text leading-tight px-1 truncate">{km.home}</div>
         </div>
 
         {/* Score */}
@@ -101,7 +101,7 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
                 <span className={cn('score-input flex items-center justify-center pointer-events-none', scoreColor)}>
                   {hasPick ? pick.home : '–'}
                 </span>
-                <span className="text-[#807D73] text-xs">–</span>
+                <span className="text-th-muted text-xs">–</span>
                 <span className={cn('score-input flex items-center justify-center pointer-events-none', scoreColor)}>
                   {hasPick ? pick.away : '–'}
                 </span>
@@ -111,34 +111,34 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
                 <input ref={homeRef} type="number" min="0" max="99"
                   defaultValue={hasPick ? pick.home : ''} placeholder="0"
                   className="score-input" onChange={queue} />
-                <span className="text-[#807D73] text-xs font-bold">–</span>
+                <span className="text-th-muted text-xs font-bold">–</span>
                 <input ref={awayRef} type="number" min="0" max="99"
                   defaultValue={hasPick ? pick.away : ''} placeholder="0"
                   className="score-input" onChange={queue} />
               </>
             )}
           </div>
-          {!locked && <div className="text-[10px] text-[#807D73]">vs</div>}
+          {!locked && <div className="text-[10px] text-th-muted">vs</div>}
         </div>
 
         {/* Away */}
         <div className="text-center">
           <div className="text-3xl sm:text-4xl leading-none mb-1">{getFlag(km.away)}</div>
-          <div className="text-[10px] sm:text-xs font-bold text-[#FFFDF2] leading-tight px-1 truncate">{km.away}</div>
+          <div className="text-[10px] sm:text-xs font-bold text-th-text leading-tight px-1 truncate">{km.away}</div>
         </div>
       </div>
 
       {/* Penalties display */}
       {result?.homePens != null && (
-        <div className="text-center text-[10px] text-[#807D73] mt-1">
-          Penalties: <span className="font-semibold text-[#FFFDF2]">{result.homePens}–{result.awayPens}</span>
+        <div className="text-center text-[10px] text-th-muted mt-1">
+          Penalties: <span className="font-semibold text-th-text">{result.homePens}–{result.awayPens}</span>
         </div>
       )}
 
       {/* Winner selector */}
       {!locked && (
         <div className="mt-3 flex items-center gap-2 flex-wrap justify-center">
-          <span className="text-xs text-[#807D73]">Winner if tied after 90 min:</span>
+          <span className="text-xs text-th-muted">Winner if tied after 90 min:</span>
           <Select value={pick.winner || ''} onValueChange={onWinnerChange}>
             <SelectTrigger className="w-48 h-8 text-xs">
               <SelectValue placeholder="— select —" />
@@ -158,7 +158,7 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
             ? <span className="text-xs text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 rounded-full px-3 py-1">🎯 +{pts} pts — exact!</span>
             : isCor
               ? <span className="text-xs text-[#22c55e] font-semibold">✓ +{pts} pts</span>
-              : <span className="text-xs text-[#807D73]">+0 pts</span>}
+              : <span className="text-xs text-th-muted">+0 pts</span>}
         </div>
       )}
     </div>

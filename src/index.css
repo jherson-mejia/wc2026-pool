@@ -2,12 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Recurly brand theme (dark mode by default) ── */
+/* ── Theme tokens ── */
+:root {
+  --th-bg:          #0D0D0B;
+  --th-surface:     #13130f;
+  --th-surface-alt: #1a1a18;
+  --th-border:      #32312D;
+  --th-text:        #FFFDF2;
+  --th-muted:       #807D73;
+  --th-subtle:      #CCC9B8;
+}
+
+html.light {
+  --th-bg:          #F5F3EC;   /* warm off-white page bg */
+  --th-surface:     #FFFDF8;   /* card/panel surface */
+  --th-surface-alt: #EAE7DC;   /* inputs, slightly recessed */
+  --th-border:      #C8C4B4;   /* visible borders */
+  --th-text:        #0D0D0B;   /* dark text */
+  --th-muted:       #807D73;   /* neutral gray, same */
+  --th-subtle:      #4A4745;   /* dark subtle text */
+}
+
+/* ── Recurly brand theme ── */
 html { font-size: 106%; }
 
 @layer base {
   :root {
-    /* shadcn/ui variables mapped to Recurly palette */
+    /* shadcn/ui variables mapped to Recurly palette (dark default) */
     --background:    20 10% 4%;      /* #0D0D0B off-black */
     --foreground:    60 100% 97%;    /* #FFFDF2 off-white */
 
@@ -38,14 +59,32 @@ html { font-size: 106%; }
 
     --radius: 0.5rem;
   }
+
+  html.light {
+    --background:    47 28% 93%;    /* #F5F3EC */
+    --foreground:    20 10% 4%;     /* #0D0D0B */
+
+    --card:          50 50% 99%;    /* #FFFDF8 */
+    --card-foreground: 20 10% 4%;
+
+    --popover:       50 50% 99%;
+    --popover-foreground: 20 10% 4%;
+
+    --secondary:     44 20% 88%;
+    --secondary-foreground: 20 10% 4%;
+
+    --muted:         44 20% 88%;
+    --muted-foreground: 33 6% 37%;  /* #4A4745 */
+
+    --border:        40 15% 74%;    /* #C8C4B4 */
+    --input:         44 26% 86%;    /* #EAE7DC */
+  }
 }
 
 @layer base {
   * { @apply border-border; }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    background-color: #0D0D0B;
-    color: #FFFDF2;
   }
   h1, h2, h3, h4, h5, h6 { font-family: 'Plus Jakarta Sans', sans-serif; }
 }
@@ -57,17 +96,17 @@ input[type='number'] { -moz-appearance: textfield; }
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0D0D0B; }
-::-webkit-scrollbar-thumb { background: #32312D; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #807D73; }
+::-webkit-scrollbar-track { background: var(--th-bg); }
+::-webkit-scrollbar-thumb { background: var(--th-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--th-muted); }
 
 /* ── Score input ── */
 .score-input {
-  @apply w-12 h-10 text-center text-lg font-bold rounded-md border border-border bg-[#32312D] text-[#FFFDF2] focus:outline-none focus:border-[#FFD706] focus:ring-1 focus:ring-[#FFD706] transition-colors;
+  @apply w-12 h-10 text-center text-lg font-bold rounded-md border border-border bg-th-border text-th-text focus:outline-none focus:border-[#FFD706] focus:ring-1 focus:ring-[#FFD706] transition-colors;
 }
 
 .score-input-sm {
-  @apply w-8 h-7 text-center text-sm font-bold rounded border border-[#32312D] bg-[#1a1a17] text-[#FFFDF2] focus:outline-none focus:border-[#FFD706] focus:ring-1 focus:ring-[#FFD706] transition-colors;
+  @apply w-8 h-7 text-center text-sm font-bold rounded border border-th-border bg-th-surface-alt text-th-text focus:outline-none focus:border-[#FFD706] focus:ring-1 focus:ring-[#FFD706] transition-colors;
 }
 
 /* ── Animations ── */
@@ -109,6 +148,12 @@ input[type='number'] { -moz-appearance: textfield; }
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* Light mode: yellow text → black; yellow borders/bg accents stay yellow */
+html.light .text-\[\#FFD706\] { color: #0D0D0B; }
+
+/* Tab list pill — more contrast against warm-white bg */
+html.light [role="tablist"] { background-color: #D4D0C2; }
 
 /* Hide scrollbar while keeping scroll functionality */
 .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }

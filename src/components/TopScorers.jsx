@@ -53,7 +53,7 @@ export default function TopScorers() {
     return (
       <div className="space-y-2">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-14 rounded-xl border border-[#32312D] bg-[#32312D]/20 animate-pulse" />
+          <div key={i} className="h-14 rounded-xl border border-th-border bg-th-border/20 animate-pulse" />
         ))}
       </div>
     )
@@ -61,8 +61,8 @@ export default function TopScorers() {
 
   if (error) {
     return (
-      <div className="rounded-xl border border-[#32312D] bg-[#32312D]/20 px-4 py-5 flex items-center justify-between gap-3">
-        <p className="text-xs text-[#807D73]">{error}</p>
+      <div className="rounded-xl border border-th-border bg-th-border/20 px-4 py-5 flex items-center justify-between gap-3">
+        <p className="text-xs text-th-muted">{error}</p>
         <button onClick={load} className="text-xs text-[#FFD706] hover:underline flex items-center gap-1 shrink-0">
           <RefreshCw className="h-3 w-3" /> Retry
         </button>
@@ -72,9 +72,9 @@ export default function TopScorers() {
 
   if (!scorers?.length) {
     return (
-      <div className="rounded-xl border border-[#32312D] bg-[#32312D]/20 px-4 py-8 text-center">
-        <Target className="h-7 w-7 text-[#32312D] mx-auto mb-2" />
-        <p className="text-sm text-[#807D73]">No goals scored yet</p>
+      <div className="rounded-xl border border-th-border bg-th-border/20 px-4 py-8 text-center">
+        <Target className="h-7 w-7 text-th-subtle mx-auto mb-2" />
+        <p className="text-sm text-th-muted">No goals scored yet</p>
       </div>
     )
   }
@@ -94,42 +94,42 @@ export default function TopScorers() {
             i === 0 ? 'border-[#FFD706]/30 bg-[#FFD706]/5'
             : i === 1 ? 'border-[#A0A0A0]/20 bg-[#A0A0A0]/5'
             : i === 2 ? 'border-[#CD7F32]/20 bg-[#CD7F32]/5'
-            : 'border-[#32312D] bg-[#32312D]/20 hover:bg-[#32312D]/40',
+            : 'border-th-border bg-th-border/20 hover:bg-th-border/40',
           )}>
             {/* Rank */}
             <div className="w-6 text-center shrink-0">
               {i < 3
                 ? <span className="text-base sm:text-lg">{MEDALS[i]}</span>
-                : <span className="text-xs font-bold text-[#807D73] tabular-nums">{i + 1}</span>}
+                : <span className="text-xs font-bold text-th-muted tabular-nums">{i + 1}</span>}
             </div>
 
             {/* Flag + player + team */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="text-base sm:text-lg leading-none shrink-0">{flag}</span>
-                <span className="text-sm sm:text-base font-semibold text-[#FFFDF2] truncate">{s.player?.name}</span>
+                <span className="text-sm sm:text-base font-semibold text-th-text truncate">{s.player?.name}</span>
               </div>
-              <div className="text-[10px] sm:text-xs text-[#807D73] mt-0.5 truncate">{team}</div>
+              <div className="text-[10px] sm:text-xs text-th-muted mt-0.5 truncate">{team}</div>
             </div>
 
             {/* Stats */}
             <div className="flex items-center gap-3 sm:gap-4 shrink-0">
               <div className="text-center">
                 <div className={cn('text-xl sm:text-2xl font-extrabold tabular-nums leading-none',
-                  i === 0 ? 'text-[#FFD706]' : 'text-[#FFFDF2]'
+                  i === 0 ? 'text-[#FFD706]' : 'text-th-text'
                 )}>{goals}</div>
-                <div className="text-[9px] sm:text-[10px] text-[#807D73] uppercase tracking-wider mt-0.5">Goals</div>
+                <div className="text-[9px] sm:text-[10px] text-th-muted uppercase tracking-wider mt-0.5">Goals</div>
               </div>
               {assists > 0 && (
                 <div className="text-center hidden sm:block">
-                  <div className="text-base font-bold text-[#807D73] tabular-nums leading-none">{assists}</div>
-                  <div className="text-[9px] text-[#807D73] uppercase tracking-wider mt-0.5">Ast</div>
+                  <div className="text-base font-bold text-th-muted tabular-nums leading-none">{assists}</div>
+                  <div className="text-[9px] text-th-muted uppercase tracking-wider mt-0.5">Ast</div>
                 </div>
               )}
               {pens > 0 && (
                 <div className="text-center hidden sm:block">
-                  <div className="text-base font-bold text-[#807D73] tabular-nums leading-none">{pens}</div>
-                  <div className="text-[9px] text-[#807D73] uppercase tracking-wider mt-0.5">Pens</div>
+                  <div className="text-base font-bold text-th-muted tabular-nums leading-none">{pens}</div>
+                  <div className="text-[9px] text-th-muted uppercase tracking-wider mt-0.5">Pens</div>
                 </div>
               )}
             </div>

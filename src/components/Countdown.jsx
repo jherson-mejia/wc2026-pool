@@ -26,13 +26,13 @@ function TimeUnit({ value, label, urgent }) {
         'relative w-14 sm:w-16 h-14 sm:h-16 rounded-xl border flex items-center justify-center overflow-hidden transition-all duration-300',
         urgent
           ? 'border-[#FF8200]/50 bg-[#FF8200]/10'
-          : 'border-[#32312D] bg-[#0D0D0B]/60',
+          : 'border-th-border bg-th-bg/60',
         flash && 'scale-105',
       )}>
         {/* Divider line */}
         <div className={cn(
           'absolute inset-x-0 top-1/2 h-px',
-          urgent ? 'bg-[#FF8200]/20' : 'bg-[#32312D]/80',
+          urgent ? 'bg-[#FF8200]/20' : 'bg-th-border/80',
         )} />
         <span className={cn(
           'font-mono font-extrabold text-2xl sm:text-3xl tabular-nums leading-none transition-all duration-200',
@@ -44,7 +44,7 @@ function TimeUnit({ value, label, urgent }) {
       </div>
       <span className={cn(
         'text-[9px] sm:text-[10px] uppercase tracking-widest font-semibold',
-        urgent ? 'text-[#FF8200]/70' : 'text-[#807D73]',
+        urgent ? 'text-[#FF8200]/70' : 'text-th-muted',
       )}>{label}</span>
     </div>
   )
@@ -90,20 +90,20 @@ export default function Countdown() {
       'rounded-xl border px-4 py-4 mb-5 transition-all duration-500',
       isUrgent
         ? 'border-[#FF8200]/40 bg-[#FF8200]/6 shadow-[0_0_32px_rgba(255,130,0,0.12)]'
-        : 'border-[#32312D] bg-[#32312D]/20',
+        : 'border-th-border bg-th-border/20',
     )}>
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 min-w-0">
           {isUrgent
             ? <Zap className="h-3.5 w-3.5 shrink-0 text-[#FF8200] animate-pulse" />
-            : <Timer className="h-3.5 w-3.5 shrink-0 text-[#807D73]" />
+            : <Timer className="h-3.5 w-3.5 shrink-0 text-th-muted" />
           }
           <div className="min-w-0">
-            <div className={cn('text-[10px] sm:text-xs uppercase tracking-wider font-semibold', isUrgent ? 'text-[#FF8200]' : 'text-[#807D73]')}>
+            <div className={cn('text-[10px] sm:text-xs uppercase tracking-wider font-semibold', isUrgent ? 'text-[#FF8200]' : 'text-th-muted')}>
               Next pick deadline
             </div>
-            <div className="text-sm sm:text-base font-semibold text-[#FFFDF2] truncate">{nextMatch.label}</div>
+            <div className="text-sm sm:text-base font-semibold text-th-text truncate">{nextMatch.label}</div>
           </div>
         </div>
         {isUrgent && (
@@ -117,9 +117,9 @@ export default function Countdown() {
       <div className="flex items-end justify-center gap-2 sm:gap-3">
         {d > 0 && <TimeUnit value={d} label="Days" urgent={isUrgent} />}
         <TimeUnit value={h} label="Hrs" urgent={isUrgent} />
-        <div className={cn('text-2xl sm:text-3xl font-bold mb-3.5 tabular-nums leading-none', isUrgent ? 'text-[#FF8200]/60' : 'text-[#32312D]')}>:</div>
+        <div className={cn('text-2xl sm:text-3xl font-bold mb-3.5 tabular-nums leading-none', isUrgent ? 'text-[#FF8200]/60' : 'text-th-subtle')}>:</div>
         <TimeUnit value={m} label="Min" urgent={isUrgent} />
-        <div className={cn('text-2xl sm:text-3xl font-bold mb-3.5 tabular-nums leading-none', isUrgent ? 'text-[#FF8200]/60' : 'text-[#32312D]')}>:</div>
+        <div className={cn('text-2xl sm:text-3xl font-bold mb-3.5 tabular-nums leading-none', isUrgent ? 'text-[#FF8200]/60' : 'text-th-subtle')}>:</div>
         <TimeUnit value={s} label="Sec" urgent={isUrgent} />
       </div>
     </div>

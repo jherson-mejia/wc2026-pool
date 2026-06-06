@@ -30,7 +30,7 @@ export default function App() {
 
         <Route path="/*" element={
           <AuthGate>
-            <div className="min-h-screen bg-[#0D0D0B]">
+            <div className="min-h-screen bg-th-bg">
               <Header />
               <main>
                 <Routes>

@@ -32,14 +32,14 @@ function PodiumCard({ p, rank, isMe }) {
         )}>
           {p.pts}
         </div>
-        <div className="text-[10px] sm:text-xs lg:text-sm text-[#807D73] uppercase tracking-wider mt-0.5">pts</div>
+        <div className="text-[10px] sm:text-xs lg:text-sm text-th-muted uppercase tracking-wider mt-0.5">pts</div>
       </div>
       <div className="w-full">
-        <div className="text-[11px] sm:text-xs lg:text-sm font-bold text-[#FFFDF2] truncate px-1">
+        <div className="text-[11px] sm:text-xs lg:text-sm font-bold text-th-text truncate px-1">
           {p.name}
           {isMe && <span className="ml-1 text-[#FFD706]">·you</span>}
         </div>
-        <div className="text-[10px] sm:text-xs lg:text-xs text-[#807D73] mt-0.5">
+        <div className="text-[10px] sm:text-xs lg:text-xs text-th-muted mt-0.5">
           {p.correct} right · {p.exact} exact
         </div>
       </div>
@@ -50,10 +50,10 @@ function PodiumCard({ p, rank, isMe }) {
 // ── Stat card ─────────────────────────────────────────────────
 function StatCard({ icon: Icon, value, label }) {
   return (
-    <div className="rounded-xl border border-[#32312D] bg-[#32312D]/20 p-3 text-center">
-      <Icon className="h-3.5 w-3.5 text-[#807D73] mx-auto mb-1.5" />
+    <div className="rounded-xl border border-th-border bg-th-border/20 p-3 text-center">
+      <Icon className="h-3.5 w-3.5 text-th-muted mx-auto mb-1.5" />
       <div className="text-base sm:text-xl font-extrabold text-[#FFD706] tabular-nums leading-none truncate">{value}</div>
-      <div className="text-[10px] sm:text-xs text-[#807D73] mt-1 uppercase tracking-wider">{label}</div>
+      <div className="text-[10px] sm:text-xs text-th-muted mt-1 uppercase tracking-wider">{label}</div>
     </div>
   )
 }
@@ -62,9 +62,9 @@ function StatCard({ icon: Icon, value, label }) {
 function SectionDivider({ label }) {
   return (
     <div className="flex items-center gap-3 my-5">
-      <div className="flex-1 h-px bg-[#32312D]" />
-      <span className="text-[11px] text-[#807D73] uppercase tracking-[0.15em] shrink-0">{label}</span>
-      <div className="flex-1 h-px bg-[#32312D]" />
+      <div className="flex-1 h-px bg-th-border" />
+      <span className="text-[11px] text-th-muted uppercase tracking-[0.15em] shrink-0">{label}</span>
+      <div className="flex-1 h-px bg-th-border" />
     </div>
   )
 }
@@ -114,8 +114,8 @@ export default function Leaderboard() {
 
       {/* ── Page header ── */}
       <div className="mb-6">
-        <h1 className="text-3xl font-extrabold text-[#FFFDF2] tracking-tight">Standings</h1>
-        <p className="text-[#807D73] text-sm mt-1">World Cup 2026 · Recurly Pool</p>
+        <h1 className="text-3xl font-extrabold text-th-text tracking-tight">Standings</h1>
+        <p className="text-th-muted text-sm mt-1">World Cup 2026 · Recurly Pool</p>
       </div>
 
       {/* ── Tournament stats ── */}
@@ -148,11 +148,11 @@ export default function Leaderboard() {
           <div className="rounded-xl border border-[#FFD706]/25 bg-[#FFD706]/5 px-4 py-4 flex items-center justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-baseline gap-2 mb-0.5">
-                <span className="text-2xl font-extrabold text-[#FFFDF2] tabular-nums">#{myRankIdx + 1}</span>
-                <span className="text-sm font-bold text-[#FFFDF2] truncate">{myEntry.name}</span>
+                <span className="text-2xl font-extrabold text-th-text tabular-nums">#{myRankIdx + 1}</span>
+                <span className="text-sm font-bold text-th-text truncate">{myEntry.name}</span>
                 <span className="text-[10px] text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 px-1.5 py-0.5 rounded-full leading-none shrink-0">you</span>
               </div>
-              <div className="text-xs text-[#807D73]">
+              <div className="text-xs text-th-muted">
                 {myEntry.correct} right · {myEntry.exact} exact
                 {ranked[myRankIdx - 1] && (
                   <span className="ml-2">
@@ -165,7 +165,7 @@ export default function Leaderboard() {
             </div>
             <div className="text-right shrink-0">
               <div className="text-3xl font-extrabold text-[#FFD706] tabular-nums leading-none">{myEntry.pts}</div>
-              <div className="text-[10px] text-[#807D73] uppercase tracking-wider mt-0.5">pts</div>
+              <div className="text-[10px] text-th-muted uppercase tracking-wider mt-0.5">pts</div>
             </div>
           </div>
         </section>
@@ -184,19 +184,19 @@ export default function Leaderboard() {
                   'flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-all',
                   isMe
                     ? 'border-[#FFD706]/25 bg-[#FFD706]/5'
-                    : 'border-[#32312D] bg-[#32312D]/20 hover:bg-[#32312D]/40',
+                    : 'border-th-border bg-th-border/20 hover:bg-th-border/40',
                 )}>
-                  <div className="w-6 text-sm font-bold text-[#807D73] text-center tabular-nums shrink-0">{i + 1}</div>
+                  <div className="w-6 text-sm font-bold text-th-muted text-center tabular-nums shrink-0">{i + 1}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-[#FFFDF2] truncate flex items-center gap-1.5">
+                    <div className="text-sm font-semibold text-th-text truncate flex items-center gap-1.5">
                       {p.name}
                       {isMe && (
                         <span className="text-[10px] text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 px-1.5 py-0.5 rounded-full leading-none">you</span>
                       )}
                     </div>
-                    <div className="text-xs text-[#807D73] mt-0.5">{p.correct} right · {p.exact} exact</div>
+                    <div className="text-xs text-th-muted mt-0.5">{p.correct} right · {p.exact} exact</div>
                   </div>
-                  <div className="text-lg font-extrabold text-[#FFFDF2] tabular-nums shrink-0">{p.pts}</div>
+                  <div className="text-lg font-extrabold text-th-text tabular-nums shrink-0">{p.pts}</div>
                 </div>
               )
             })}
@@ -216,17 +216,17 @@ export default function Leaderboard() {
                   'flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-all',
                   isMe
                     ? 'border-[#FFD706]/25 bg-[#FFD706]/5'
-                    : 'border-[#32312D] bg-[#32312D]/20 hover:bg-[#32312D]/40',
+                    : 'border-th-border bg-th-border/20 hover:bg-th-border/40',
                 )}>
-                  <div className="w-6 text-sm font-bold text-[#807D73] text-center">{i + 1}</div>
+                  <div className="w-6 text-sm font-bold text-th-muted text-center">{i + 1}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-[#FFFDF2] truncate flex items-center gap-1.5">
+                    <div className="text-sm font-semibold text-th-text truncate flex items-center gap-1.5">
                       {p.name}
                       {isMe && <span className="text-[10px] text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 px-1.5 py-0.5 rounded-full leading-none">you</span>}
                     </div>
-                    <div className="text-xs text-[#807D73] mt-0.5">{p.correct} right · {p.exact} exact</div>
+                    <div className="text-xs text-th-muted mt-0.5">{p.correct} right · {p.exact} exact</div>
                   </div>
-                  <div className="text-lg font-extrabold text-[#FFFDF2] tabular-nums">{p.pts}</div>
+                  <div className="text-lg font-extrabold text-th-text tabular-nums">{p.pts}</div>
                 </div>
               )
             })}
@@ -236,7 +236,7 @@ export default function Leaderboard() {
 
       {/* ── Empty state ── */}
       {ranked.length === 0 && (
-        <div className="text-center py-20 text-[#807D73]">
+        <div className="text-center py-20 text-th-muted">
           <Users className="h-10 w-10 mx-auto mb-3 opacity-40" />
           <p className="font-medium">No participants yet</p>
           <p className="text-sm mt-1">Share the app link to get started!</p>
@@ -250,13 +250,13 @@ export default function Leaderboard() {
             {SCORING_PILLS.map(({ label, pts }) => (
               <div
                 key={label}
-                className="flex items-center gap-1.5 shrink-0 rounded-full border border-[#32312D] bg-[#32312D]/30 px-3 py-1"
+                className="flex items-center gap-1.5 shrink-0 rounded-full border border-th-border bg-th-border/30 px-3 py-1"
               >
-                <span className="text-[11px] text-[#807D73]">{label}</span>
-                <span className="text-[11px] font-bold text-[#FFFDF2]">{pts}</span>
+                <span className="text-[11px] text-th-muted">{label}</span>
+                <span className="text-[11px] font-bold text-th-text">{pts}</span>
               </div>
             ))}
-            <span className="shrink-0 text-[11px] text-[#807D73] pl-1 whitespace-nowrap">right / exact</span>
+            <span className="shrink-0 text-[11px] text-th-muted pl-1 whitespace-nowrap">right / exact</span>
           </div>
         </section>
       )}

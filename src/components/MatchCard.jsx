@@ -26,19 +26,19 @@ export default function MatchCard({ match, pick = {}, result, onSave, disabled =
     }, 700)
   }
 
-  const scoreColor = isExact ? 'text-[#FFD706]' : isCorrect ? 'text-[#22c55e]' : 'text-[#807D73]'
+  const scoreColor = isExact ? 'text-[#FFD706]' : isCorrect ? 'text-[#22c55e]' : 'text-th-muted'
 
   const borderClass = isExact   ? 'border-[#FFD706]/40 bg-[#FFD706]/5'
     : isCorrect ? 'border-[#22c55e]/30 bg-[#22c55e]/5'
     : isNext    ? 'border-[#FFD706]/60 bg-[#FFD706]/5 shadow-[0_0_20px_rgba(255,215,6,0.12)]'
     : ki?.isToday && !result ? 'border-[#FF8200]/40 bg-[#FF8200]/5'
-    : locked    ? 'border-[#32312D] bg-[#0D0D0B]/60'
-    :             'border-[#32312D] bg-[#0D0D0B]/60 hover:border-[#807D73]'
+    : locked    ? 'border-th-border bg-th-bg/60'
+    :             'border-th-border bg-th-bg/60 hover:border-th-muted'
 
   return (
     <div className={cn('rounded-xl border p-4 transition-all', borderClass)}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-3 text-xs text-[#807D73]">
+      <div className="flex items-center justify-between mb-3 text-xs text-th-muted">
         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
           <span className="font-medium shrink-0">{label ?? `MD${match.matchday}`}</span>
           {ki && (
@@ -70,7 +70,7 @@ export default function MatchCard({ match, pick = {}, result, onSave, disabled =
         {/* Home */}
         <div className="text-center">
           <div className="text-3xl sm:text-4xl leading-none mb-1">{getFlag(match.home)}</div>
-          <div className="text-[10px] sm:text-xs font-bold text-[#FFFDF2] leading-tight px-1 truncate">{match.home}</div>
+          <div className="text-[10px] sm:text-xs font-bold text-th-text leading-tight px-1 truncate">{match.home}</div>
         </div>
 
         {/* Score */}
@@ -81,7 +81,7 @@ export default function MatchCard({ match, pick = {}, result, onSave, disabled =
                 <span className={cn('score-input flex items-center justify-center pointer-events-none', scoreColor)}>
                   {hasPick ? pick.home : '–'}
                 </span>
-                <span className="text-[#807D73] text-xs font-bold">–</span>
+                <span className="text-th-muted text-xs font-bold">–</span>
                 <span className={cn('score-input flex items-center justify-center pointer-events-none', scoreColor)}>
                   {hasPick ? pick.away : '–'}
                 </span>
@@ -91,7 +91,7 @@ export default function MatchCard({ match, pick = {}, result, onSave, disabled =
                 <input ref={homeRef} type="number" min="0" max="99"
                   defaultValue={hasPick ? pick.home : ''} placeholder="0"
                   className="score-input" onChange={queue} />
-                <span className="text-[#807D73] text-xs font-bold">–</span>
+                <span className="text-th-muted text-xs font-bold">–</span>
                 <input ref={awayRef} type="number" min="0" max="99"
                   defaultValue={hasPick ? pick.away : ''} placeholder="0"
                   className="score-input" onChange={queue} />
@@ -99,17 +99,17 @@ export default function MatchCard({ match, pick = {}, result, onSave, disabled =
             )}
           </div>
           {!locked && ki && !ki.isLive && (
-            <div className="text-[10px] text-[#807D73]">
+            <div className="text-[10px] text-th-muted">
               {ki.isToday && ki.hoursUntil > 0 ? `in ${ki.hoursUntil}h` : 'vs'}
             </div>
           )}
-          {!locked && (!ki || ki.isLive) && <div className="text-[10px] text-[#807D73]">vs</div>}
+          {!locked && (!ki || ki.isLive) && <div className="text-[10px] text-th-muted">vs</div>}
         </div>
 
         {/* Away */}
         <div className="text-center">
           <div className="text-3xl sm:text-4xl leading-none mb-1">{getFlag(match.away)}</div>
-          <div className="text-[10px] sm:text-xs font-bold text-[#FFFDF2] leading-tight px-1 truncate">{match.away}</div>
+          <div className="text-[10px] sm:text-xs font-bold text-th-text leading-tight px-1 truncate">{match.away}</div>
         </div>
       </div>
 
@@ -120,7 +120,7 @@ export default function MatchCard({ match, pick = {}, result, onSave, disabled =
             ? <span className="text-xs text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 rounded-full px-3 py-1">🎯 +{pts} pts — exact!</span>
             : isCorrect
               ? <span className="text-xs text-[#22c55e] font-semibold">✓ +{pts} pt</span>
-              : <span className="text-xs text-[#807D73]">+0 pts</span>}
+              : <span className="text-xs text-th-muted">+0 pts</span>}
         </div>
       )}
     </div>

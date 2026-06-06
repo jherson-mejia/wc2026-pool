@@ -43,7 +43,7 @@ function ScorerPicker({ lineup, bench, pick, locked, matchGoals, teamId, onSave 
   if (!players.length) return null
 
   if (locked) {
-    if (!pick) return <span className="text-[10px] text-[#807D73] italic">No scorer pick</span>
+    if (!pick) return <span className="text-[10px] text-th-muted italic">No scorer pick</span>
     const correct = matchGoals
       ? matchGoals.goals?.some(g => g.scorer_id === pick.playerId && g.team_id === teamId)
       : null
@@ -51,8 +51,8 @@ function ScorerPicker({ lineup, bench, pick, locked, matchGoals, teamId, onSave 
       <span className={cn(
         'text-[11px] font-semibold truncate max-w-full',
         correct === true  ? 'text-[#22c55e]'
-        : correct === false ? 'text-[#807D73]'
-        : 'text-[#FFFDF2]',
+        : correct === false ? 'text-th-muted'
+        : 'text-th-text',
       )}>
         {correct === true && '✓ '}
         {pick.playerName}
@@ -63,7 +63,7 @@ function ScorerPicker({ lineup, bench, pick, locked, matchGoals, teamId, onSave 
 
   return (
     <select
-      className="w-full text-[11px] bg-[#1A1A17] border border-[#32312D] rounded px-1.5 py-1 text-[#FFFDF2] focus:outline-none focus:border-[#FFD706]/50 truncate"
+      className="w-full text-[11px] bg-th-surface-alt border border-th-border rounded px-1.5 py-1 text-th-text focus:outline-none focus:border-[#FFD706]/50 truncate"
       value={pick?.playerId ?? ''}
       onChange={e => {
         const player = players.find(p => String(p.id) === e.target.value)
@@ -111,11 +111,11 @@ function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, my
     }, 700)
   }
 
-  const scoreColor = isExact ? 'text-[#FFD706] font-bold' : isCorrect ? 'text-[#22c55e] font-semibold' : 'text-[#807D73]'
+  const scoreColor = isExact ? 'text-[#FFD706] font-bold' : isCorrect ? 'text-[#22c55e] font-semibold' : 'text-th-muted'
   const borderCls  = isExact   ? 'border-[#FFD706]/40 bg-[#FFD706]/5'
     : isCorrect  ? 'border-[#22c55e]/30 bg-[#22c55e]/5'
     : isNext     ? 'border-[#FFD706]/60 bg-[#FFD706]/5'
-    :              'border-[#32312D] bg-[#32312D]/20'
+    :              'border-th-border bg-th-border/20'
 
   const time = kickoff
     ? new Date(kickoff).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -128,11 +128,11 @@ function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, my
       {/* Main score row */}
       <div className="flex items-center gap-2">
         {/* Time */}
-        <div className="text-[11px] text-[#807D73] shrink-0 w-14 tabular-nums">{time}</div>
+        <div className="text-[11px] text-th-muted shrink-0 w-14 tabular-nums">{time}</div>
 
         {/* Home */}
         <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
-          <span className="text-xs font-semibold text-[#FFFDF2] truncate text-right">{match.home}</span>
+          <span className="text-xs font-semibold text-th-text truncate text-right">{match.home}</span>
           <span className="text-base leading-none shrink-0">{getFlag(match.home)}</span>
         </div>
 
@@ -143,7 +143,7 @@ function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, my
               <span className={cn('w-8 h-7 flex items-center justify-center text-sm tabular-nums', scoreColor)}>
                 {hasPick ? pick.home : '–'}
               </span>
-              <span className="text-[#807D73] text-xs font-bold">–</span>
+              <span className="text-th-muted text-xs font-bold">–</span>
               <span className={cn('w-8 h-7 flex items-center justify-center text-sm tabular-nums', scoreColor)}>
                 {hasPick ? pick.away : '–'}
               </span>
@@ -153,7 +153,7 @@ function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, my
               <input ref={homeRef} type="number" min="0" max="99"
                 defaultValue={hasPick ? pick.home : ''} placeholder="0"
                 className="score-input-sm" onChange={queue} />
-              <span className="text-[#807D73] text-xs font-bold">–</span>
+              <span className="text-th-muted text-xs font-bold">–</span>
               <input ref={awayRef} type="number" min="0" max="99"
                 defaultValue={hasPick ? pick.away : ''} placeholder="0"
                 className="score-input-sm" onChange={queue} />
@@ -164,43 +164,43 @@ function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, my
         {/* Away */}
         <div className="flex items-center gap-1.5 flex-1 justify-start min-w-0">
           <span className="text-base leading-none shrink-0">{getFlag(match.away)}</span>
-          <span className="text-xs font-semibold text-[#FFFDF2] truncate">{match.away}</span>
+          <span className="text-xs font-semibold text-th-text truncate">{match.away}</span>
         </div>
 
         {/* Right: pts earned or group badge */}
         <div className="shrink-0 min-w-[2rem] text-right">
           {pts != null ? (
-            <span className={cn('text-xs font-bold tabular-nums', isExact ? 'text-[#FFD706]' : isCorrect ? 'text-[#22c55e]' : 'text-[#807D73]')}>
+            <span className={cn('text-xs font-bold tabular-nums', isExact ? 'text-[#FFD706]' : isCorrect ? 'text-[#22c55e]' : 'text-th-muted')}>
               {pts > 0 ? `+${pts}` : '0'}
             </span>
           ) : (
-            <span className="text-[10px] text-[#807D73]">{`G${match.group}`}</span>
+            <span className="text-[10px] text-th-muted">{`G${match.group}`}</span>
           )}
         </div>
       </div>
 
       {/* Odds — shown before kickoff when available */}
       {!locked && matchMeta?.oddsHome != null && (
-        <div className="flex items-center justify-center gap-3 mt-1.5 text-[10px] text-[#807D73]">
-          <span>H <span className="text-[#FFFDF2] tabular-nums">{matchMeta.oddsHome}</span></span>
-          <span>D <span className="text-[#FFFDF2] tabular-nums">{matchMeta.oddsDraw}</span></span>
-          <span>A <span className="text-[#FFFDF2] tabular-nums">{matchMeta.oddsAway}</span></span>
+        <div className="flex items-center justify-center gap-3 mt-1.5 text-[10px] text-th-muted">
+          <span>H <span className="text-th-text tabular-nums">{matchMeta.oddsHome}</span></span>
+          <span>D <span className="text-th-text tabular-nums">{matchMeta.oddsDraw}</span></span>
+          <span>A <span className="text-th-text tabular-nums">{matchMeta.oddsAway}</span></span>
         </div>
       )}
 
       {/* Scorer picks — shown when lineup is available */}
       {hasLineup && (
-        <div className="mt-2 pt-2 border-t border-[#32312D]/50 space-y-2">
+        <div className="mt-2 pt-2 border-t border-th-border/50 space-y-2">
           {/* Venue + referee */}
           {(matchMeta?.venue || matchMeta?.referee) && (
-            <div className="flex items-center justify-between text-[10px] text-[#807D73]">
+            <div className="flex items-center justify-between text-[10px] text-th-muted">
               {matchMeta.venue   && <span>🏟 {matchMeta.venue}</span>}
               {matchMeta.referee && <span>Ref: {matchMeta.referee}</span>}
             </div>
           )}
           <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col gap-1 min-w-0">
-              <span className="text-[10px] text-[#807D73] uppercase tracking-wide">{match.home} scorer</span>
+              <span className="text-[10px] text-th-muted uppercase tracking-wide">{match.home} scorer</span>
               <ScorerPicker
                 lineup={lineup.homeLineup}
                 bench={lineup.homeBench}
@@ -212,7 +212,7 @@ function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, my
               />
             </div>
             <div className="flex flex-col gap-1 min-w-0">
-              <span className="text-[10px] text-[#807D73] uppercase tracking-wide">{match.away} scorer</span>
+              <span className="text-[10px] text-th-muted uppercase tracking-wide">{match.away} scorer</span>
               <ScorerPicker
                 lineup={lineup.awayLineup}
                 bench={lineup.awayBench}
@@ -251,7 +251,7 @@ function DaySection({ label, sublabel, isToday, allPast, hasNext, matches, myPic
   return (
     <div className={cn(
       'rounded-xl border overflow-hidden transition-all',
-      isToday ? 'border-[#FF8200]/50' : 'border-[#32312D]',
+      isToday ? 'border-[#FF8200]/50' : 'border-th-border',
     )}>
       <button
         onClick={() => setOpen(v => !v)}
@@ -259,13 +259,13 @@ function DaySection({ label, sublabel, isToday, allPast, hasNext, matches, myPic
           'w-full flex items-center justify-between px-4 py-3.5 transition-colors',
           isToday
             ? 'bg-[#FF8200]/10 hover:bg-[#FF8200]/15'
-            : 'bg-[#32312D]/50 hover:bg-[#32312D]/80',
+            : 'bg-th-border/50 hover:bg-th-border/80',
           allPast && !isToday && 'opacity-60',
         )}
       >
         <div className="text-left">
           <div className="flex items-center gap-2">
-            <span className={cn('font-bold text-sm', isToday ? 'text-[#FF8200]' : 'text-[#FFFDF2]')}>
+            <span className={cn('font-bold text-sm', isToday ? 'text-[#FF8200]' : 'text-th-text')}>
               {label}
             </span>
             {isToday && (
@@ -275,17 +275,17 @@ function DaySection({ label, sublabel, isToday, allPast, hasNext, matches, myPic
               </span>
             )}
           </div>
-          <div className="text-xs text-[#807D73] mt-0.5">{sublabel} · {visibleMatches.length} matches</div>
+          <div className="text-xs text-th-muted mt-0.5">{sublabel} · {visibleMatches.length} matches</div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {myPts > 0 && <span className="text-xs font-bold text-[#FFD706]">+{myPts} pts</span>}
-          {results && done > 0 && <span className="text-xs text-[#807D73]">{done}/{visibleMatches.length}</span>}
-          <ChevronDown className={cn('h-4 w-4 text-[#807D73] transition-transform', open && 'rotate-180')} />
+          {results && done > 0 && <span className="text-xs text-th-muted">{done}/{visibleMatches.length}</span>}
+          <ChevronDown className={cn('h-4 w-4 text-th-muted transition-transform', open && 'rotate-180')} />
         </div>
       </button>
 
       {open && (
-        <div className="p-3 space-y-1.5 bg-[#0D0D0B]/40">
+        <div className="p-3 space-y-1.5 bg-th-bg/40">
           {hasNext && nextMatchId && kickoffs[nextMatchId] && (
             <TickingCountdown kickoff={kickoffs[nextMatchId]} />
           )}
@@ -399,10 +399,10 @@ function KORound({ round, myPicks, results, koMatches, kickoffs, onSave, isAdmin
 
   if (allTBD) {
     return (
-      <div className="rounded-xl border border-[#32312D] bg-[#0D0D0B]/40 p-8 text-center">
-        <Lock className="h-8 w-8 text-[#32312D] mx-auto mb-3" />
-        <p className="font-semibold text-[#807D73]">{round.name} picks are locked</p>
-        <p className="text-sm text-[#807D73] mt-1.5">
+      <div className="rounded-xl border border-th-border bg-th-bg/40 p-8 text-center">
+        <Lock className="h-8 w-8 text-th-subtle mx-auto mb-3" />
+        <p className="font-semibold text-th-muted">{round.name} picks are locked</p>
+        <p className="text-sm text-th-muted mt-1.5">
           Picks unlock match-by-match as soon as the admin confirms which teams are playing.
         </p>
       </div>
@@ -411,8 +411,8 @@ function KORound({ round, myPicks, results, koMatches, kickoffs, onSave, isAdmin
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-xs text-[#807D73] bg-[#32312D]/30 rounded-lg px-3 py-2">
-        <span>📊 {round.name}: <span className="text-[#FFFDF2] font-semibold">{round.scoring.result}pts</span> winner · <span className="text-[#FFD706] font-semibold">{round.scoring.exact}pts</span> exact score</span>
+      <div className="flex items-center gap-2 text-xs text-th-muted bg-th-border/30 rounded-lg px-3 py-2">
+        <span>📊 {round.name}: <span className="text-th-text font-semibold">{round.scoring.result}pts</span> winner · <span className="text-[#FFD706] font-semibold">{round.scoring.exact}pts</span> exact score</span>
       </div>
       {Array.from({ length: round.count }, (_, i) => {
         const mid = `${round.id}_${i + 1}`
@@ -463,12 +463,12 @@ function PicksProgress({ myPicks, results, participants, allPicks, user, myScore
   const totalPlayed = playedIds.length
 
   return (
-    <section className="rounded-xl border border-[#32312D] bg-[#32312D]/20 p-4 mb-5">
+    <section className="rounded-xl border border-th-border bg-th-border/20 p-4 mb-5">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xs font-bold text-[#807D73] uppercase tracking-[0.15em]">My Progress</h2>
+        <h2 className="text-xs font-bold text-th-muted uppercase tracking-[0.15em]">My Progress</h2>
         {myRank && (
-          <div className="flex items-center gap-1.5 text-xs text-[#807D73]">
+          <div className="flex items-center gap-1.5 text-xs text-th-muted">
             <span>Current rank</span>
             <span className="font-extrabold text-[#FFD706] text-sm">#{myRank}</span>
           </div>
@@ -477,31 +477,31 @@ function PicksProgress({ myPicks, results, participants, allPicks, user, myScore
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-1.5 mb-4">
-        <div className="rounded-lg bg-[#0D0D0B]/60 border border-[#32312D] p-2.5 text-center">
-          <Target className="h-3 w-3 text-[#807D73] mx-auto mb-1" />
+        <div className="rounded-lg bg-th-bg/60 border border-th-border p-2.5 text-center">
+          <Target className="h-3 w-3 text-th-muted mx-auto mb-1" />
           <div className="text-xl font-extrabold text-[#FFD706] tabular-nums leading-none">{pts}</div>
-          <div className="text-[9px] text-[#807D73] uppercase tracking-wider mt-1">Points</div>
+          <div className="text-[9px] text-th-muted uppercase tracking-wider mt-1">Points</div>
         </div>
-        <div className="rounded-lg bg-[#0D0D0B]/60 border border-[#32312D] p-2.5 text-center">
-          <CheckCircle2 className="h-3 w-3 text-[#807D73] mx-auto mb-1" />
-          <div className="text-xl font-extrabold text-[#FFFDF2] tabular-nums leading-none">{correct}</div>
-          <div className="text-[9px] text-[#807D73] uppercase tracking-wider mt-1">Right result</div>
+        <div className="rounded-lg bg-th-bg/60 border border-th-border p-2.5 text-center">
+          <CheckCircle2 className="h-3 w-3 text-th-muted mx-auto mb-1" />
+          <div className="text-xl font-extrabold text-th-text tabular-nums leading-none">{correct}</div>
+          <div className="text-[9px] text-th-muted uppercase tracking-wider mt-1">Right result</div>
         </div>
-        <div className="rounded-lg bg-[#0D0D0B]/60 border border-[#32312D] p-2.5 text-center">
-          <Zap className="h-3 w-3 text-[#807D73] mx-auto mb-1" />
-          <div className="text-xl font-extrabold text-[#FFFDF2] tabular-nums leading-none">{exact}</div>
-          <div className="text-[9px] text-[#807D73] uppercase tracking-wider mt-1">Exact score</div>
+        <div className="rounded-lg bg-th-bg/60 border border-th-border p-2.5 text-center">
+          <Zap className="h-3 w-3 text-th-muted mx-auto mb-1" />
+          <div className="text-xl font-extrabold text-th-text tabular-nums leading-none">{exact}</div>
+          <div className="text-[9px] text-th-muted uppercase tracking-wider mt-1">Exact score</div>
         </div>
       </div>
 
       {/* Picks completion bar */}
       {totalPlayed > 0 && (
         <div>
-          <div className="flex justify-between text-[11px] text-[#807D73] mb-1.5">
+          <div className="flex justify-between text-[11px] text-th-muted mb-1.5">
             <span>Picks vs played matches</span>
-            <span className="font-semibold text-[#FFFDF2]">{pickedOfPlayed}/{totalPlayed}</span>
+            <span className="font-semibold text-th-text">{pickedOfPlayed}/{totalPlayed}</span>
           </div>
-          <div className="h-1.5 rounded-full bg-[#32312D] overflow-hidden">
+          <div className="h-1.5 rounded-full bg-th-border overflow-hidden">
             <div
               className="h-full rounded-full transition-all"
               style={{
@@ -555,7 +555,7 @@ export default function Picks() {
   if (isAdmin) {
     return (
       <div className="max-w-2xl lg:max-w-3xl mx-auto px-4 py-6">
-        <div className="rounded-xl border border-[#32312D] bg-[#32312D]/20 p-6 text-center text-[#807D73]">
+        <div className="rounded-xl border border-th-border bg-th-border/20 p-6 text-center text-th-muted">
           <Lock className="h-8 w-8 mx-auto mb-3 opacity-40" />
           <p className="font-semibold">Admins can't enter picks</p>
           <p className="text-sm mt-1">Log in with a participant account to pick scores.</p>
@@ -569,8 +569,8 @@ export default function Picks() {
       {/* Page header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-3xl font-extrabold text-[#FFFDF2] tracking-tight">My Picks</h1>
-          <p className="text-[#807D73] text-sm mt-0.5">{user?.name}</p>
+          <h1 className="text-3xl font-extrabold text-th-text tracking-tight">My Picks</h1>
+          <p className="text-th-muted text-sm mt-0.5">{user?.name}</p>
         </div>
         <Button variant="secondary" size="sm" onClick={exportPicks}>
           <Download className="h-3.5 w-3.5" />
@@ -605,8 +605,8 @@ export default function Picks() {
         </TabsList>
 
         <TabsContent value="group">
-          <div className="text-xs text-[#807D73] bg-[#32312D]/30 rounded-lg px-3 py-2 mb-4">
-            📊 Group Stage: <span className="text-[#FFFDF2] font-semibold">1pt</span> right result · <span className="text-[#FFD706] font-semibold">3pts</span> exact score
+          <div className="text-xs text-th-muted bg-th-border/30 rounded-lg px-3 py-2 mb-4">
+            📊 Group Stage: <span className="text-th-text font-semibold">1pt</span> right result · <span className="text-[#FFD706] font-semibold">3pts</span> exact score
           </div>
           <MatchDayView
             myPicks={myPicks}
