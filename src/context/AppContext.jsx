@@ -77,9 +77,20 @@ export function AppProvider({ children }) {
       } catch {
         dispatch({ type: 'INIT', payload: {} })
       }
-      const savedUser  = LS.get('user')
-      const savedAdmin = LS.get('isAdmin')
-      if (savedUser) dispatch({ type: 'LOGIN', user: savedUser, isAdmin: !!savedAdmin })
+      const savedUser = LS.get('user')
+      const savedPw   = LS.get('adminPw')
+      if (savedUser) {
+        if (savedUser.email === '__admin__' && savedPw) {
+          try {
+            await apiAdminLogin(savedPw)
+            dispatch({ type: 'LOGIN', user: savedUser, isAdmin: true })
+          } catch {
+            LS.del('user'); LS.del('isAdmin'); LS.del('adminPw')
+          }
+        } else {
+          dispatch({ type: 'LOGIN', user: savedUser, isAdmin: false })
+        }
+      }
     }
     boot()
   }, [])
