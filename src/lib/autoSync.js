@@ -15,6 +15,7 @@ const TEAM_NAME_MAP = {
   'Türkiye':                       'Turkey',
   'Bosnia-Herzegovina':            'Bosnia and Herzegovina',
   'Cabo Verde':                    'Cape Verde',
+  'Cape Verde Islands':            'Cape Verde',
   'Congo DR':                      'DR Congo',
   'Democratic Republic of Congo':  'DR Congo',
   'USA':                           'United States',
@@ -61,8 +62,7 @@ export async function fetchSchedule() {
 
 function findGroupMatch(apiHome, apiAway, apiGroup, apiMatchday) {
   return GROUP_MATCHES.find(g =>
-    g.home === apiHome &&
-    g.away === apiAway &&
+    (g.home === apiHome && g.away === apiAway || g.home === apiAway && g.away === apiHome) &&
     (!apiGroup    || g.group    === apiGroup) &&
     (!apiMatchday || g.matchday === apiMatchday)
   )

@@ -13,8 +13,8 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select'
 import { calcTotals } from '@/lib/scoring'
-import { fetchFinishedMatches, mapToPoolResults, fetchSchedule, mapKickoffs, mapFdMatchIds, mapMatchMeta } from '@/lib/autoSync'
-import { apiBulkImportPicks, apiSaveFdMatchIds, apiSaveMatchMeta } from '@/lib/storage'
+import { fetchFinishedMatches, mapToPoolResults } from '@/lib/autoSync'
+import { apiBulkImportPicks, LS } from '@/lib/storage'
 import { Download, Upload, Trash2, CheckCircle, Users, RefreshCw, Pencil, ChevronDown, X, Check, Clock, Zap } from 'lucide-react'
 
 // ── Enter Results ─────────────────────────────────────────────
@@ -708,16 +708,10 @@ function SyncTab() {
     setSchedLoading(true)
     setLog(['Fetching match schedule…'])
     try {
-      const apiMatches  = await fetchSchedule()
-      setLog(l => [...l, `API returned ${apiMatches.length} total match(es)`])
-      const newKickoffs = mapKickoffs(apiMatches, koMatches)
-      const newFdIds    = mapFdMatchIds(apiMatches, koMatches)
-      const newMeta     = mapMatchMeta(apiMatches, koMatches)
-      const count       = Object.keys(newKickoffs).length
-      if (count === 0) { setLog(l => [...l, 'No kickoff times matched — check team names']); return }
-      await Promise.all([saveKickoffs(newKickoffs), apiSaveFdMatchIds(newFdIds), apiSaveMatchMeta(newMeta)])
-      const fdCount   = Object.keys(newFdIds).length
-      const metaCount = Object.keys(newMeta).length
+      const pw = LS.get('adminPw')
+      const res = await fetch('/api/scheduler-sync-schedule', { method: 'POST', headers: pw ? { 'X-Admin-Password': pw } : {} })
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error || `Server error ${res.status}`) }
+      const { kickoffs: count, fdIds: fdCount, odds: metaCount } = await res.json()
       setLog(l => [...l, `✓ Kickoffs: ${count}, FD IDs: ${fdCount}, Odds: ${metaCount}`])
       toast({ title: `Schedule synced — ${count} kickoff times saved ✓` })
     } catch (e) {

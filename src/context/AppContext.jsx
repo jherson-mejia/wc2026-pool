@@ -80,16 +80,8 @@ export function AppProvider({ children }) {
       const savedUser = LS.get('user')
       const savedPw   = LS.get('adminPw')
       if (savedUser) {
-        if (savedUser.email === '__admin__' && savedPw) {
-          try {
-            await apiAdminLogin(savedPw)
-            dispatch({ type: 'LOGIN', user: savedUser, isAdmin: true })
-          } catch {
-            LS.del('user'); LS.del('isAdmin'); LS.del('adminPw')
-          }
-        } else {
-          dispatch({ type: 'LOGIN', user: savedUser, isAdmin: false })
-        }
+        const isAdmin = savedUser.email === '__admin__' && !!savedPw
+        dispatch({ type: 'LOGIN', user: savedUser, isAdmin })
       }
     }
     boot()

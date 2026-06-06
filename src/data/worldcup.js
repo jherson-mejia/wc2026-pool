@@ -67,3 +67,4 @@ export const TEAM_FLAGS = {
 export function getFlag(team) {
   return TEAM_FLAGS[team] || '🏳️'
 }
+

@@ -12,6 +12,8 @@
 
 import { GROUP_MATCHES } from '../src/data/worldcup.js'
 
+const KO_STAGE_SLUG = { LAST_32: 'r32', LAST_16: 'r16', QUARTER_FINALS: 'qf', SEMI_FINALS: 'sf', THIRD_PLACE: 'tp', FINAL: 'final' }
+
 export const DAILY_BUDGET   = 100
 export const MANUAL_RESERVE = 20
 export const AUTO_BUDGET    = DAILY_BUDGET - MANUAL_RESERVE  // 80
@@ -24,6 +26,7 @@ const TEAM_NAME_MAP = {
   'Türkiye':                      'Turkey',
   'Bosnia-Herzegovina':           'Bosnia and Herzegovina',
   'Cabo Verde':                   'Cape Verde',
+  'Cape Verde Islands':           'Cape Verde',
   'Congo DR':                     'DR Congo',
   'Democratic Republic of Congo': 'DR Congo',
   'USA':                          'United States',
@@ -39,7 +42,7 @@ const parseGroup = g => g?.startsWith('GROUP_') ? g.replace('GROUP_', '') : null
 
 function findGroupMatch(home, away, group, matchday) {
   return GROUP_MATCHES.find(g =>
-    g.home === home && g.away === away &&
+    (g.home === home && g.away === away || g.home === away && g.away === home) &&
     (!group    || g.group    === group) &&
     (!matchday || g.matchday === matchday)
   )
@@ -206,9 +209,9 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
     try {
       const apiMatches = await fetchFinished(apiKey)
 
-      const { data: koRows } = await supabase.from('ko_matches').select('*')
-      const koMatches = {}
-      for (const r of koRows ?? []) koMatches[r.match_id] = { home: r.home, away: r.away }
+      const { data: fdRows } = await supabase.from('fd_match_ids').select('*')
+      const fdIdToMatchId = {}
+      for (const r of fdRows ?? []) fdIdToMatchId[r.fd_id] = r.match_id
 
       const toUpsert     = []
       const goalsToUpsert = []
@@ -225,10 +228,7 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
           const gm = findGroupMatch(home, away, grp, matchday)
           if (gm) matchId = gm.id
         } else {
-          const entry = Object.entries(koMatches).find(
-            ([, km]) => km.home === home && km.away === away
-          )
-          if (entry) matchId = entry[0]
+          matchId = fdIdToMatchId[m.id] ?? null
         }
 
         if (!matchId) continue
@@ -310,9 +310,28 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
     try {
       const apiMatches = await fetchAllMatches(apiKey)
 
-      const { data: koRows } = await supabase.from('ko_matches').select('*')
-      const koMatches = {}
-      for (const r of koRows ?? []) koMatches[r.match_id] = { home: r.home, away: r.away }
+      // Build FD ID → internal match ID map from DB, assign new KO slots for unknowns
+      const { data: fdRows } = await supabase.from('fd_match_ids').select('*')
+      const fdIdToMatchId = {}
+      const slotCounts = {}
+      for (const r of fdRows ?? []) {
+        fdIdToMatchId[r.fd_id] = r.match_id
+        const slug = r.match_id.replace(/_\d+$/, '')
+        if (KO_STAGE_SLUG[r.match_id] === undefined && slug !== r.match_id)
+          slotCounts[slug] = Math.max(slotCounts[slug] || 0, parseInt(r.match_id.split('_').pop(), 10))
+      }
+      const newKoFdRows = []
+      // Sort KO matches by utcDate so slot numbering is stable
+      const koApiMatches = apiMatches.filter(m => KO_STAGE_SLUG[m.stage] && !fdIdToMatchId[m.id])
+      koApiMatches.sort((a, b) => a.utcDate.localeCompare(b.utcDate))
+      for (const m of koApiMatches) {
+        const slug = KO_STAGE_SLUG[m.stage]
+        slotCounts[slug] = (slotCounts[slug] || 0) + 1
+        const matchId = `${slug}_${slotCounts[slug]}`
+        fdIdToMatchId[m.id] = matchId
+        newKoFdRows.push({ match_id: matchId, fd_id: m.id, ts: Date.now() })
+      }
+      if (newKoFdRows.length) await supabase.from('fd_match_ids').upsert(newKoFdRows, { onConflict: 'match_id' })
 
       const kickoffRows = []
       const fdIdRows    = []
@@ -329,8 +348,7 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
           const gm = findGroupMatch(home, away, grp, matchday)
           if (gm) matchId = gm.id
         } else {
-          const entry = Object.entries(koMatches).find(([, km]) => km.home === home && km.away === away)
-          if (entry) matchId = entry[0]
+          matchId = fdIdToMatchId[m.id] ?? null
         }
         if (!matchId) continue
 
