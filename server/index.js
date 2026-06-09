@@ -216,12 +216,20 @@ app.get('/api/config', (_req, res) => {
 app.post('/api/login', async (req, res) => {
   const { name, email } = req.body ?? {}
   if (!name || !email) return res.status(400).json({ error: 'name and email required' })
-  const row = { email: email.toLowerCase(), name, joined_at: Date.now() }
-  const { error } = await supabase.from('participants').upsert(row, { onConflict: 'email' })
-  if (error) return res.status(500).json({ error: error.message })
-  const { data: participant } = await supabase.from('participants').select('*').eq('email', row.email).single()
+  const lowerEmail = email.toLowerCase()
+  const { data: existing } = await supabase.from('participants').select('*').eq('email', lowerEmail).maybeSingle()
+  let participant
+  if (existing) {
+    const { error } = await supabase.from('participants').update({ name, joined_at: Date.now() }).eq('email', lowerEmail)
+    if (error) return res.status(500).json({ error: error.message })
+    participant = { ...existing, name }
+  } else {
+    const { data, error } = await supabase.from('participants').insert({ email: lowerEmail, name, joined_at: Date.now() }).select().single()
+    if (error) return res.status(500).json({ error: error.message })
+    participant = data
+  }
   broadcastTable('participants')
-  res.json({ user: participant ?? row })
+  res.json({ user: participant })
 })
 
 app.post('/api/admin-login', (req, res) => {

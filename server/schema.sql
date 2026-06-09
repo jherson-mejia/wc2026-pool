@@ -47,6 +47,15 @@ create table if not exists ko_matches (
   ts         bigint
 );
 
+-- ── kickoffs ──────────────────────────────────────────────────
+-- Match kickoff times (ISO 8601 UTC). Synced from football-data.org.
+-- Used server-side to lock picks once a match has started.
+create table if not exists kickoffs (
+  match_id text    primary key,
+  kickoff  text    not null,   -- ISO 8601 e.g. "2026-06-11T19:00:00Z"
+  ts       bigint
+);
+
 -- ── fd_match_ids ──────────────────────────────────────────────
 -- Maps pool match IDs → football-data.org match IDs.
 -- Populated when admin syncs schedule. Used by scheduler to fetch lineups.
@@ -116,6 +125,7 @@ alter table participants disable row level security;
 alter table picks        disable row level security;
 alter table results      disable row level security;
 alter table ko_matches   disable row level security;
+alter table kickoffs     disable row level security;
 alter table fd_match_ids disable row level security;
 alter table lineups      disable row level security;
 alter table match_goals  disable row level security;
