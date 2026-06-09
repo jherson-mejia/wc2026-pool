@@ -99,7 +99,7 @@ export default function Leaderboard() {
         const scorer = allScorer[p.email] || {}
         return { ...p, ...calcTotals(picks, results, scorer, matchGoals) }
       })
-      .sort((a, b) => b.pts - a.pts || b.correct - a.correct || b.exact - a.exact)
+      .sort((a, b) => b.pts - a.pts || b.correct - a.correct || b.exact - a.exact || (a.joined_at ?? 0) - (b.joined_at ?? 0))
   }, [participants, allPicks, myPicks, results, user])
 
   const totalMatches = GROUP_MATCHES.length + KO_ROUNDS.reduce((s, r) => s + r.count, 0)
