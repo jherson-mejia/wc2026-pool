@@ -634,6 +634,16 @@ app.post('/api/scheduler-force', adminOnly, async (_req, res) => {
   res.json(scheduler.status())
 })
 
+app.post('/api/lineups/:matchId/sync', adminOnly, async (req, res) => {
+  if (!scheduler) return res.status(503).json({ error: 'Scheduler not running (FD_API_KEY not set)' })
+  try {
+    await scheduler.syncLineup(req.params.matchId)
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(502).json({ error: err.message })
+  }
+})
+
 app.post('/api/scheduler-sync-schedule', adminOnly, async (_req, res) => {
   if (!scheduler) return res.status(503).json({ error: 'Scheduler not running (FD_API_KEY not set)' })
   try {

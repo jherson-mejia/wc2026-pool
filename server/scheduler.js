@@ -481,9 +481,16 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
 
   planDay()
 
+  async function syncLineup(matchId) {
+    const { data: fdRow } = await supabase.from('fd_match_ids').select('fd_id').eq('match_id', matchId).single()
+    if (!fdRow?.fd_id) throw new Error(`No FD ID mapped for ${matchId} — run Sync Schedule first`)
+    await runLineupFetch(matchId, fdRow.fd_id)
+  }
+
   return {
     forceSync:      () => runSync('manual'),
     syncSchedule:   () => syncSchedule(),
+    syncLineup,
     status:      () => ({
       requestsToday,
       autoBudget:  AUTO_BUDGET,

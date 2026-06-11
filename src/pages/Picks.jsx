@@ -74,14 +74,14 @@ function ScorerPicker({ lineup, bench, pick, locked, matchGoals, teamId, onSave 
       {lineup?.length > 0 && (
         <optgroup label="Starting XI">
           {lineup.map(p => (
-            <option key={p.id} value={p.id}>{p.name}</option>
+            <option key={p.id} value={p.id}>{p.name}{p.position ? ` · ${p.position}` : ''}</option>
           ))}
         </optgroup>
       )}
       {bench?.length > 0 && (
         <optgroup label="Bench">
           {bench.map(p => (
-            <option key={p.id} value={p.id}>{p.name}</option>
+            <option key={p.id} value={p.id}>{p.name}{p.position ? ` · ${p.position}` : ''}</option>
           ))}
         </optgroup>
       )}
@@ -294,25 +294,26 @@ function DaySection({ label, sublabel, isToday, allPast, hasNext, matches, myPic
 
       {open && (
         <div className="p-3 space-y-1.5 bg-th-bg/40">
-          {hasNext && nextMatchId && kickoffs[nextMatchId] && (
-            <TickingCountdown kickoff={kickoffs[nextMatchId]} />
-          )}
           {visibleMatches.map(m => (
-            <PickRow
-              key={m.id}
-              match={m}
-              pick={myPicks[m.id]}
-              result={results[m.id]}
-              kickoff={kickoffs[m.id]}
-              onSave={onSave}
-              isNext={m.id === nextMatchId}
-              lineup={lineups?.[m.id]}
-              myScorerHome={myScorer?.[`${m.id}_home`]}
-              myScorerAway={myScorer?.[`${m.id}_away`]}
-              matchGoals={matchGoals?.[m.id]}
-              matchMeta={matchMeta?.[m.id]}
-              onSaveScorer={onSaveScorer}
-            />
+            <div key={m.id}>
+              {m.id === nextMatchId && kickoffs[m.id] && (
+                <TickingCountdown kickoff={kickoffs[m.id]} />
+              )}
+              <PickRow
+                match={m}
+                pick={myPicks[m.id]}
+                result={results[m.id]}
+                kickoff={kickoffs[m.id]}
+                onSave={onSave}
+                isNext={m.id === nextMatchId}
+                lineup={lineups?.[m.id]}
+                myScorerHome={myScorer?.[`${m.id}_home`]}
+                myScorerAway={myScorer?.[`${m.id}_away`]}
+                matchGoals={matchGoals?.[m.id]}
+                matchMeta={matchMeta?.[m.id]}
+                onSaveScorer={onSaveScorer}
+              />
+            </div>
           ))}
         </div>
       )}

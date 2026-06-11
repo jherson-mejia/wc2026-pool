@@ -671,6 +671,76 @@ function SchedulerStatus() {
   )
 }
 
+// ── Lineup Sync ───────────────────────────────────────────────
+function LineupSyncCard() {
+  const { koMatches, lineups } = useApp()
+  const { toast } = useToast()
+  const [matchId, setMatchId] = useState('GA_1')
+  const [loading, setLoading] = useState(false)
+  const [log, setLog] = useState([])
+
+  const allMatches = [
+    ...GROUP_MATCHES.map(m => ({ id: m.id, label: `${m.id}: ${m.home} vs ${m.away}` })),
+    ...Object.entries(koMatches)
+      .filter(([, km]) => km?.home)
+      .map(([mid, km]) => ({ id: mid, label: `${mid}: ${km.home} vs ${km.away}` })),
+  ]
+
+  async function doSync() {
+    setLoading(true)
+    setLog([`Fetching lineup for ${matchId}…`])
+    try {
+      const pw = LS.get('adminPw')
+      const res = await fetch(`/api/lineups/${matchId}/sync`, {
+        method: 'POST',
+        headers: pw ? { 'X-Admin-Password': pw } : {},
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || `Server error ${res.status}`)
+      setLog([`✓ Lineup synced for ${matchId}`])
+      toast({ title: `Lineup synced for ${matchId} ✓` })
+    } catch (e) {
+      setLog([`✗ ${e.message}`])
+      toast({ title: e.message, variant: 'destructive' })
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Users className="h-4 w-4" /> Sync Lineup
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Fetch live lineup from football-data.org for a specific match. Requires an FD ID — run Sync Schedule first.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex gap-2 items-center flex-wrap">
+          <select
+            value={matchId}
+            onChange={e => setMatchId(e.target.value)}
+            className="flex-1 h-9 rounded-md border border-th-border bg-th-surface-alt text-th-text text-sm px-2 focus:outline-none focus:border-[#FFD706]"
+          >
+            {allMatches.map(m => (
+              <option key={m.id} value={m.id}>
+                {m.label}{lineups[m.id] ? ' ✓' : ''}
+              </option>
+            ))}
+          </select>
+          <Button onClick={doSync} disabled={loading} size="sm">
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Syncing…' : 'Sync Lineup'}
+          </Button>
+        </div>
+        {log.length > 0 && (
+          <pre className="text-xs text-th-muted font-mono bg-th-surface-alt rounded-md p-3 whitespace-pre-wrap">{log.join('\n')}</pre>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // ── Auto-Sync ─────────────────────────────────────────────────
 function SyncTab() {
   const { results, koMatches, saveResult, saveKickoffs, kickoffs } = useApp()
@@ -725,6 +795,7 @@ function SyncTab() {
   return (
     <div className="space-y-4">
       <SchedulerStatus />
+      <LineupSyncCard />
 
       <Card>
         <CardHeader className="pb-3">
