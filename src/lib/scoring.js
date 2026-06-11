@@ -1,6 +1,6 @@
 import { GROUP_MATCHES, GROUP_SCORING, KO_ROUNDS } from '@/data/worldcup'
 
-export const SCORER_POINTS = 3
+export const SCORER_POINTS = 1
 
 export function calcMatchPoints(pick, result, roundId) {
   if (!pick || !result) return 0

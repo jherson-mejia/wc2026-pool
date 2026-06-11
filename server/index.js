@@ -261,6 +261,7 @@ app.get('/api/events', async (req, res) => {
     write('match_goals',  goalsMap)
     write('scorer_picks', rowsToScorerPicks(scorerPickRows ?? []))
     write('match_meta',   metaMap)
+    write('live_scores',  scheduler?.getLiveScores() ?? {})
 
     const nameMap = {}
     for (const p of parts ?? []) nameMap[p.user_id] = p.name

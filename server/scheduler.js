@@ -53,7 +53,7 @@ async function fetchFinished(apiKey) {
   const timeout = setTimeout(() => ctrl.abort(), 15_000)
   try {
     const res = await fetch(
-      'https://api.football-data.org/v4/competitions/WC/matches?season=2026&status=FINISHED',
+      'https://api.football-data.org/v4/competitions/WC/matches?season=2026&status=FINISHED,IN_PLAY,PAUSED',
       { headers: { 'X-Auth-Token': apiKey }, signal: ctrl.signal }
     )
     clearTimeout(timeout)
@@ -108,6 +108,7 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
   if (!apiKey) {
     console.log('[scheduler] FD_API_KEY not set — auto-sync disabled')
     return null
+
   }
 
   let requestsToday = 0
@@ -115,6 +116,7 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
   let lastSync      = null
   let nextSync      = null
   let todayPlan     = []    // array of scheduled Date objects
+  let liveScores    = {}    // in-memory: matchId → live score snapshot
 
   function clearTimers() {
     timers.forEach(t => clearTimeout(t))
@@ -213,8 +215,9 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
       const fdIdToMatchId = {}
       for (const r of fdRows ?? []) fdIdToMatchId[r.fd_id] = r.match_id
 
-      const toUpsert     = []
+      const toUpsert      = []
       const goalsToUpsert = []
+      const newLive       = {}
 
       for (const m of apiMatches) {
         const home     = normalize(m.homeTeam?.name ?? '')
@@ -233,10 +236,36 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
 
         if (!matchId) continue
 
-        // Results
         const h = m.score?.fullTime?.home
         const a = m.score?.fullTime?.away
-        if (h != null && a != null) {
+
+        // Live scores for IN_PLAY / PAUSED matches
+        if (m.status === 'IN_PLAY' || m.status === 'PAUSED') {
+          newLive[matchId] = {
+            matchId,
+            home,
+            away,
+            homeScore:  h ?? 0,
+            awayScore:  a ?? 0,
+            status:     m.status,
+            minute:     m.minute     ?? null,
+            injuryTime: m.injuryTime ?? null,
+            goals: (m.goals ?? []).map(g => ({
+              minute:     g.minute,
+              scorerName: g.scorer?.name ?? null,
+              scorerId:   g.scorer?.id   ?? null,
+              teamId:     g.team?.id     ?? null,
+            })),
+            updatedAt: Date.now(),
+          }
+          // Persist provisional score to results table so it survives restarts
+          if (h != null && a != null) {
+            toUpsert.push({ match_id: matchId, home: h, away: a, winner: null, home_pens: null, away_pens: null, ts: Date.now() })
+          }
+        }
+
+        // Final results from FINISHED matches (overwrites provisional)
+        if (m.status === 'FINISHED' && h != null && a != null) {
           const w      = m.score?.winner
           const winner = m.stage !== 'GROUP_STAGE'
             ? (w === 'HOME_TEAM' ? 'home' : w === 'AWAY_TEAM' ? 'away' : null)
@@ -246,7 +275,7 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
           toUpsert.push({ match_id: matchId, home: h, away: a, winner, home_pens: hp, away_pens: ap, ts: Date.now() })
         }
 
-        // Goals (may be present even for in-progress matches)
+        // Goals (present for both live and finished)
         if (Array.isArray(m.goals)) {
           goalsToUpsert.push({
             match_id:     matchId,
@@ -263,6 +292,10 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
         }
       }
 
+      // Broadcast live scores (replace map entirely so finished matches disappear)
+      liveScores = newLive
+      broadcast('live_scores', liveScores)
+
       if (toUpsert.length > 0) {
         const { error } = await supabase.from('results').upsert(toUpsert, { onConflict: 'match_id' })
         if (error) throw new Error(error.message)
@@ -273,7 +306,7 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
           resultMap[r.match_id] = { matchId: r.match_id, home: r.home, away: r.away, winner: r.winner, ts: r.ts }
         }
         broadcast('results', resultMap)
-        console.log(`[scheduler] Saved & broadcast ${toUpsert.length} result(s)`)
+        console.log(`[scheduler] Saved & broadcast ${toUpsert.length} result(s) (incl. live)`)
       } else {
         console.log('[scheduler] No new results')
       }
@@ -491,6 +524,7 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
     forceSync:      () => runSync('manual'),
     syncSchedule:   () => syncSchedule(),
     syncLineup,
+    getLiveScores:  () => liveScores,
     status:      () => ({
       requestsToday,
       autoBudget:  AUTO_BUDGET,

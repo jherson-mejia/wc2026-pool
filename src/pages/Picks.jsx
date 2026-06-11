@@ -386,7 +386,7 @@ function MatchDayView({ myPicks, results, kickoffs, onSave, lineups, myScorer, m
           key={day.dateKey}
           {...day}
           myPicks={myPicks}
-          results={results}
+          results={effectiveResults}
           kickoffs={kickoffs}
           onSave={onSave}
           nextMatchId={nextMatchId}
@@ -532,7 +532,16 @@ function PicksProgress({ myPicks, results, participants, allPicks, user, myScore
 
 // ── Main Picks page ────────────────────────────────────────────
 export default function Picks() {
-  const { myPicks, results, koMatches, kickoffs, user, isAdmin, savePick, participants, allPicks, lineups, myScorer, matchGoals, matchMeta, saveScorerPick } = useApp()
+  const { myPicks, results, liveScores, koMatches, kickoffs, user, isAdmin, savePick, participants, allPicks, lineups, myScorer, matchGoals, matchMeta, saveScorerPick } = useApp()
+
+  const effectiveResults = useMemo(() => {
+    const live = {}
+    for (const [mid, m] of Object.entries(liveScores)) {
+      if (results[mid]) continue
+      live[mid] = { matchId: mid, home: m.homeScore, away: m.awayScore, winner: null }
+    }
+    return Object.keys(live).length ? { ...results, ...live } : results
+  }, [results, liveScores])
   const { toast } = useToast()
 
   async function handleSave(matchId, home, away, winner) {
@@ -590,7 +599,7 @@ export default function Picks() {
       {/* My progress */}
       <PicksProgress
         myPicks={myPicks}
-        results={results}
+        results={effectiveResults}
         participants={participants}
         allPicks={allPicks}
         user={user}
@@ -619,7 +628,7 @@ export default function Picks() {
           </div>
           <MatchDayView
             myPicks={myPicks}
-            results={results}
+            results={effectiveResults}
             kickoffs={kickoffs}
             onSave={handleSave}
             lineups={lineups}
@@ -635,7 +644,7 @@ export default function Picks() {
             <KORound
               round={round}
               myPicks={myPicks}
-              results={results}
+              results={effectiveResults}
               koMatches={koMatches}
               kickoffs={kickoffs}
               onSave={handleSave}

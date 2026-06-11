@@ -145,7 +145,7 @@ export async function apiDeleteKoMatch(matchId) {
 }
 
 // ── SSE (real-time updates from server) ───────────────────────
-export function listenSSE({ onParticipants, onResults, onKoMatches, onPicks, onKickoffs, onLineups, onScorerPicks, onMatchGoals, onMatchMeta, onTriviaState }) {
+export function listenSSE({ onParticipants, onResults, onKoMatches, onPicks, onKickoffs, onLineups, onScorerPicks, onMatchGoals, onMatchMeta, onTriviaState, onLiveScores }) {
   const es = new EventSource('/api/events')
   es.addEventListener('participants',  e => onParticipants?.(JSON.parse(e.data)))
   es.addEventListener('results',       e => onResults?.(JSON.parse(e.data)))
@@ -157,6 +157,7 @@ export function listenSSE({ onParticipants, onResults, onKoMatches, onPicks, onK
   es.addEventListener('match_goals',   e => onMatchGoals?.(JSON.parse(e.data)))
   es.addEventListener('match_meta',    e => onMatchMeta?.(JSON.parse(e.data)))
   es.addEventListener('trivia_state',  e => onTriviaState?.(JSON.parse(e.data)))
+  es.addEventListener('live_scores',   e => onLiveScores?.(JSON.parse(e.data)))
   es.onerror = () => console.warn('SSE reconnecting…')
   return () => es.close()
 }

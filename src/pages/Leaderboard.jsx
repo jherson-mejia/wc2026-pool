@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { Users, Swords, BarChart3, Brain, Play, CheckCircle2, XCircle, Clock } from 'lucide-react'
 import { useApp } from '@/context/AppContext'
 import Countdown from '@/components/Countdown'
+import LiveMatchBanner from '@/components/LiveMatchBanner'
 import { calcTotals } from '@/lib/scoring'
 import { GROUP_MATCHES, KO_ROUNDS } from '@/data/worldcup'
 import { cn } from '@/lib/utils'
@@ -257,17 +258,27 @@ function TriviaLeaderboard() {
 }
 
 export default function Leaderboard() {
-  const { participants, allPicks, myPicks, results, user, allScorer, matchGoals } = useApp()
+  const { participants, allPicks, myPicks, results, liveScores, user, allScorer, matchGoals } = useApp()
+
+  // Merge live scores as provisional results so picks score in real-time
+  const effectiveResults = useMemo(() => {
+    const live = {}
+    for (const [mid, m] of Object.entries(liveScores)) {
+      if (results[mid]) continue  // finished result takes priority
+      live[mid] = { matchId: mid, home: m.homeScore, away: m.awayScore, winner: null }
+    }
+    return Object.keys(live).length ? { ...results, ...live } : results
+  }, [results, liveScores])
 
   const { played, stage } = useMemo(() => {
-    const played = Object.keys(results).length
-    const groupDone = GROUP_MATCHES.filter(m => results[m.id]).length
+    const played = Object.keys(effectiveResults).length
+    const groupDone = GROUP_MATCHES.filter(m => effectiveResults[m.id]).length
     const stage =
       groupDone === 0 ? 'Pre-Tournament'
       : groupDone < GROUP_MATCHES.length ? 'Group Stage'
       : 'Knockout'
     return { played, stage }
-  }, [results])
+  }, [effectiveResults])
 
   const ranked = useMemo(() => {
     return participants
@@ -275,10 +286,10 @@ export default function Leaderboard() {
       .map(p => {
         const picks  = p.email === user?.email ? myPicks : (allPicks[p.email] || {})
         const scorer = allScorer[p.email] || {}
-        return { ...p, ...calcTotals(picks, results, scorer, matchGoals) }
+        return { ...p, ...calcTotals(picks, effectiveResults, scorer, matchGoals) }
       })
       .sort((a, b) => b.pts - a.pts || b.correct - a.correct || b.exact - a.exact || (a.joined_at ?? 0) - (b.joined_at ?? 0))
-  }, [participants, allPicks, myPicks, results, user])
+  }, [participants, allPicks, myPicks, effectiveResults, user, allScorer, matchGoals])
 
   const totalMatches = GROUP_MATCHES.length + KO_ROUNDS.reduce((s, r) => s + r.count, 0)
 
@@ -307,6 +318,9 @@ export default function Leaderboard() {
         <StatCard icon={Users}     value={ranked.length}               label="Players" />
         <StatCard icon={BarChart3} value={stage}                       label="Stage" />
       </section>
+
+      {/* ── Live matches ── */}
+      <LiveMatchBanner />
 
       {/* ── Countdown ── */}
       <Countdown />

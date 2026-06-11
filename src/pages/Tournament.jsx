@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react'
 import { Calendar } from 'lucide-react'
-import { getFlag, GROUP_MATCHES, GROUPS } from '@/data/worldcup'
+import { getFlag, GROUP_MATCHES, GROUPS, KO_ROUNDS } from '@/data/worldcup'
 import { useApp } from '@/context/AppContext'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import TopScorers from '@/components/TopScorers'
 import Bracket from '@/components/Bracket'
+import LiveMatchBanner from '@/components/LiveMatchBanner'
 
 // ── Shared empty ─────────────────────────────────────────────
 function EmptyState({ icon: Icon, msg }) {
@@ -193,26 +194,51 @@ function GroupsTab() {
 
 // ── ResultsTab — reads from Supabase via AppContext (no API) ──
 function ResultsTab() {
-  const { results, kickoffs } = useApp()
+  const { results, kickoffs, koMatches } = useApp()
 
-  const finished = GROUP_MATCHES
+  const groupFinished = GROUP_MATCHES
     .filter(m => results[m.id])
     .map(m => ({
-      id: m.id,
-      home: m.home,
-      away: m.away,
-      homeScore: results[m.id].home,
-      awayScore: results[m.id].away,
+      id: m.id, home: m.home, away: m.away,
+      homeScore: results[m.id].home, awayScore: results[m.id].away,
       winner: results[m.id].winner,
       kickoff: kickoffs[m.id] ?? null,
       label: `Group ${m.group}`,
     }))
+
+  const koFinished = KO_ROUNDS.flatMap(round =>
+    Array.from({ length: round.count }, (_, i) => {
+      const mid = `${round.id}_${i + 1}`
+      const r = results[mid]
+      const km = koMatches[mid]
+      if (!r || !km?.home) return null
+      return {
+        id: mid, home: km.home, away: km.away,
+        homeScore: r.home, awayScore: r.away,
+        winner: r.winner,
+        kickoff: kickoffs[mid] ?? null,
+        label: round.name,
+      }
+    }).filter(Boolean)
+  )
+
+  const finished = [...groupFinished, ...koFinished]
     .sort((a, b) => {
       if (a.kickoff && b.kickoff) return new Date(b.kickoff) - new Date(a.kickoff)
       return 0
     })
 
-  if (!finished.length) return <EmptyState icon={Calendar} msg="No results yet" />
+  return (
+    <div>
+      <LiveMatchBanner />
+      {!finished.length
+        ? <EmptyState icon={Calendar} msg="No results yet" />
+        : <ResultsList finished={finished} />}
+    </div>
+  )
+}
+
+function ResultsList({ finished }) {
 
   const groups = []
   let lastKey = null
@@ -237,7 +263,7 @@ function ResultsTab() {
                 <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
                   <span className={cn(
                     'text-xs truncate text-right',
-                    m.winner === 'HOME_TEAM' ? 'font-bold text-th-text' : 'text-th-muted'
+                    m.winner === 'home' || (!m.winner && m.homeScore > m.awayScore) ? 'font-bold text-th-text' : 'text-th-muted'
                   )}>{m.home}</span>
                   <span className="text-base leading-none shrink-0">{getFlag(m.home)}</span>
                 </div>
@@ -248,7 +274,7 @@ function ResultsTab() {
                   <span className="text-base leading-none shrink-0">{getFlag(m.away)}</span>
                   <span className={cn(
                     'text-xs truncate',
-                    m.winner === 'AWAY_TEAM' ? 'font-bold text-th-text' : 'text-th-muted'
+                    m.winner === 'away' || (!m.winner && m.awayScore > m.homeScore) ? 'font-bold text-th-text' : 'text-th-muted'
                   )}>{m.away}</span>
                 </div>
               </div>
