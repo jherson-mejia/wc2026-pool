@@ -296,6 +296,13 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
       liveScores = newLive
       broadcast('live_scores', liveScores)
 
+      // Poll every 3 min while any match is PAUSED (HT), stop once all are back IN_PLAY
+      const hasHalftime = Object.values(newLive).some(m => m.status === 'PAUSED')
+      if (hasHalftime) {
+        console.log('[scheduler] HT in progress — re-polling in 3 min')
+        timers.push(setTimeout(() => runSync('ht-followup'), 3 * 60 * 1000))
+      }
+
       if (toUpsert.length > 0) {
         const { error } = await supabase.from('results').upsert(toUpsert, { onConflict: 'match_id' })
         if (error) throw new Error(error.message)
