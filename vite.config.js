@@ -20,6 +20,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      '/api/events': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
       '/api': {
         target: 'http://localhost:4000',
         changeOrigin: true,

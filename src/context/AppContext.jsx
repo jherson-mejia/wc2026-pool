@@ -3,6 +3,7 @@ import {
   LS,
   listenSSE,
   apiLogin, apiAdminLogin, apiGetParticipant,
+  apiGetMyPicks,
   apiSavePick, apiSaveResult, apiDeleteResult,
   apiSetKoMatch, apiDeleteKoMatch,
   apiUpdateParticipant, apiDeleteParticipant,
@@ -34,7 +35,14 @@ function reducer(state, action) {
     case 'INIT':          return { ...state, ...action.payload, ready: true }
     case 'LOGIN':         return { ...state, user: action.user, isAdmin: action.isAdmin }
     case 'LOGOUT':        return { ...INIT, ready: true, poolName: state.poolName }
-    case 'SET_PICKS':     return { ...state, myPicks: action.picks }
+    case 'SET_PICKS': {
+      // Merge: keep local pick if it's newer than what the server broadcast
+      const merged = { ...action.picks }
+      for (const [mid, local] of Object.entries(state.myPicks)) {
+        if (!merged[mid] || local.ts > merged[mid].ts) merged[mid] = local
+      }
+      return { ...state, myPicks: merged }
+    }
     case 'SET_ALL_PICKS': return { ...state, allPicks: action.picks }
     case 'SET_RESULTS':   return { ...state, results: action.results }
     case 'SET_KO':        return { ...state, koMatches: action.koMatches }
@@ -84,6 +92,10 @@ export function AppProvider({ children }) {
       if (savedUser) {
         const isAdmin = savedUser.email === '__admin__' && !!savedPw
         dispatch({ type: 'LOGIN', user: savedUser, isAdmin })
+        if (!isAdmin) {
+          const picks = await apiGetMyPicks(savedUser.email).catch(() => ({}))
+          dispatch({ type: 'SET_PICKS', picks })
+        }
       }
     }
     boot()
@@ -120,6 +132,8 @@ export function AppProvider({ children }) {
     LS.set('user', user)
     LS.set('isAdmin', false)
     dispatch({ type: 'LOGIN', user, isAdmin: false })
+    const picks = await apiGetMyPicks(user.email).catch(() => ({}))
+    dispatch({ type: 'SET_PICKS', picks })
   }
 
   async function loginByEmail(email) {
@@ -128,6 +142,8 @@ export function AppProvider({ children }) {
     LS.set('user', user)
     LS.set('isAdmin', false)
     dispatch({ type: 'LOGIN', user, isAdmin: false })
+    const picks = await apiGetMyPicks(user.email).catch(() => ({}))
+    dispatch({ type: 'SET_PICKS', picks })
   }
 
   async function adminLogin(password) {

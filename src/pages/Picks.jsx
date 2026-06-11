@@ -102,6 +102,14 @@ function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, my
   const isExact  = pts != null && pts >= 3
   const isCorrect = pts != null && pts >= 1
 
+  // Sync DOM values when pick loads from SSE after initial mount
+  useEffect(() => {
+    if (hasPick && homeRef.current && document.activeElement !== homeRef.current)
+      homeRef.current.value = String(pick.home)
+    if (hasPick && awayRef.current && document.activeElement !== awayRef.current)
+      awayRef.current.value = String(pick.away)
+  }, [pick?.home, pick?.away])
+
   function queue() {
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {

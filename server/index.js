@@ -34,6 +34,10 @@ if (missing.length) {
 const app = express()
 app.use(cors())
 app.use(express.json())
+app.use((req, _res, next) => {
+  if (req.path !== '/api/events') console.log(`[req] ${req.method} ${req.path}`)
+  next()
+})
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
@@ -50,7 +54,8 @@ function broadcast(event, data) {
 }
 
 async function broadcastTable(table) {
-  const { data, error } = await supabase.from(table).select('*')
+  const limit = table === 'picks' || table === 'scorer_picks' ? 10000 : 1000
+  const { data, error } = await supabase.from(table).select('*').limit(limit)
   if (error || !data) return
 
   if (table === 'participants') {
@@ -137,6 +142,12 @@ function rowsToScorerPicks(rows) {
   return byEmail
 }
 
+// ── Route error helper ────────────────────────────────────────
+function fail(res, error, context) {
+  console.error(`[server:${context}]`, error.message ?? error)
+  return res.status(500).json({ error: error.message ?? String(error) })
+}
+
 // ── Admin auth middleware ─────────────────────────────────────
 function adminOnly(req, res, next) {
   const pw = req.headers['x-admin-password']
@@ -211,7 +222,7 @@ app.get('/api/events', async (req, res) => {
       supabase.from('participants').select('*'),
       supabase.from('results').select('*'),
       supabase.from('ko_matches').select('*'),
-      supabase.from('picks').select('*'),
+      supabase.from('picks').select('*').limit(10000),
       supabase.from('kickoffs').select('*'),
       supabase.from('lineups').select('*'),
       supabase.from('match_goals').select('*'),
@@ -286,11 +297,11 @@ app.post('/api/login', async (req, res) => {
   let participant
   if (existing) {
     const { error } = await supabase.from('participants').update({ name, joined_at: Date.now() }).eq('email', lowerEmail)
-    if (error) return res.status(500).json({ error: error.message })
+    if (error) return fail(res, error, req.path)
     participant = { ...existing, name }
   } else {
     const { data, error } = await supabase.from('participants').insert({ email: lowerEmail, name, joined_at: Date.now() }).select().single()
-    if (error) return res.status(500).json({ error: error.message })
+    if (error) return fail(res, error, req.path)
     participant = data
   }
   broadcastTable('participants')
@@ -304,9 +315,9 @@ app.post('/api/admin-login', (req, res) => {
 })
 
 // ── Participants ──────────────────────────────────────────────
-app.get('/api/participants', async (_req, res) => {
+app.get('/api/participants', async (req, res) => {
   const { data, error } = await supabase.from('participants').select('*')
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   res.json(data)
 })
 
@@ -322,7 +333,7 @@ app.get('/api/participants/:email', async (req, res) => {
 
 app.patch('/api/participants/:email', adminOnly, async (req, res) => {
   const { error } = await supabase.from('participants').update(req.body).eq('email', req.params.email)
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   broadcastTable('participants')
   res.json({ ok: true })
 })
@@ -331,10 +342,21 @@ app.delete('/api/participants/:email', adminOnly, async (req, res) => {
   const { email } = req.params
   await supabase.from('picks').delete().eq('email', email)
   const { error } = await supabase.from('participants').delete().eq('email', email)
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   broadcastTable('participants')
   broadcastTable('picks')
   res.json({ ok: true })
+})
+
+// ── My picks (by email) ───────────────────────────────────────
+app.get('/api/my-picks', async (req, res) => {
+  const { email } = req.query
+  if (!email) return res.status(400).json({ error: 'email required' })
+  const { data, error } = await supabase.from('picks').select('*').eq('email', email)
+  if (error) return fail(res, error, req.path)
+  const picks = {}
+  for (const r of data ?? []) picks[r.match_id] = rowToPick(r)
+  res.json(picks)
 })
 
 // ── Picks ─────────────────────────────────────────────────────
@@ -350,7 +372,7 @@ app.put('/api/picks/:id', async (req, res) => {
 
   const row = { id, email, match_id, home, away, winner: winner ?? null, ts: Date.now() }
   const { error } = await supabase.from('picks').upsert(row, { onConflict: 'id' })
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   broadcastTable('picks')
   res.json({ ok: true })
 })
@@ -369,15 +391,15 @@ app.post('/api/picks/bulk', adminOnly, async (req, res) => {
     ts:       Date.now(),
   }))
   const { error } = await supabase.from('picks').upsert(rows, { onConflict: 'id' })
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   broadcastTable('picks')
   res.json({ ok: true, count: rows.length })
 })
 
 // ── Results ───────────────────────────────────────────────────
-app.get('/api/results', async (_req, res) => {
+app.get('/api/results', async (req, res) => {
   const { data, error } = await supabase.from('results').select('*')
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   const map = {}
   for (const r of data) map[r.match_id] = rowToResult(r)
   res.json(map)
@@ -387,22 +409,22 @@ app.put('/api/results/:matchId', adminOnly, async (req, res) => {
   const { home, away, winner, home_pens, away_pens } = req.body ?? {}
   const row = { match_id: req.params.matchId, home, away, winner: winner ?? null, home_pens: home_pens ?? null, away_pens: away_pens ?? null, ts: Date.now() }
   const { error } = await supabase.from('results').upsert(row, { onConflict: 'match_id' })
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   broadcastTable('results')
   res.json({ ok: true })
 })
 
 app.delete('/api/results/:matchId', adminOnly, async (req, res) => {
   const { error } = await supabase.from('results').delete().eq('match_id', req.params.matchId)
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   broadcastTable('results')
   res.json({ ok: true })
 })
 
 // ── KO Matches ────────────────────────────────────────────────
-app.get('/api/ko-matches', async (_req, res) => {
+app.get('/api/ko-matches', async (req, res) => {
   const { data, error } = await supabase.from('ko_matches').select('*')
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   const map = {}
   for (const r of data) map[r.match_id] = rowToKo(r)
   res.json(map)
@@ -412,22 +434,22 @@ app.put('/api/ko-matches/:matchId', adminOnly, async (req, res) => {
   const { home, away } = req.body ?? {}
   const row = { match_id: req.params.matchId, home, away, ts: Date.now() }
   const { error } = await supabase.from('ko_matches').upsert(row, { onConflict: 'match_id' })
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   broadcastTable('ko_matches')
   res.json({ ok: true })
 })
 
 app.delete('/api/ko-matches/:matchId', adminOnly, async (req, res) => {
   const { error } = await supabase.from('ko_matches').delete().eq('match_id', req.params.matchId)
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   broadcastTable('ko_matches')
   res.json({ ok: true })
 })
 
 // ── Kickoffs ──────────────────────────────────────────────────
-app.get('/api/kickoffs', async (_req, res) => {
+app.get('/api/kickoffs', async (req, res) => {
   const { data, error } = await supabase.from('kickoffs').select('*')
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   const map = {}
   for (const r of data) map[r.match_id] = r.kickoff
   res.json(map)
@@ -438,7 +460,7 @@ app.put('/api/kickoffs', adminOnly, async (req, res) => {
   const rows = Object.entries(map).map(([match_id, kickoff]) => ({ match_id, kickoff, ts: Date.now() }))
   if (!rows.length) return res.json({ ok: true, count: 0 })
   const { error } = await supabase.from('kickoffs').upsert(rows, { onConflict: 'match_id' })
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   broadcastTable('kickoffs')
   res.json({ ok: true, count: rows.length })
 })
@@ -455,7 +477,7 @@ app.put('/api/match-meta', adminOnly, async (req, res) => {
   }))
   if (!rows.length) return res.json({ ok: true, count: 0 })
   const { error } = await supabase.from('match_meta').upsert(rows, { onConflict: 'match_id' })
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   broadcastTable('match_meta')
   res.json({ ok: true, count: rows.length })
 })
@@ -470,14 +492,14 @@ app.put('/api/lineups/:matchId', adminOnly, async (req, res) => {
     fetched_at: Date.now(),
   }
   const { error } = await supabase.from('lineups').upsert(row, { onConflict: 'match_id' })
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   broadcastTable('lineups')
   res.json({ ok: true })
 })
 
 app.delete('/api/lineups/:matchId', adminOnly, async (req, res) => {
   const { error } = await supabase.from('lineups').delete().eq('match_id', req.params.matchId)
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   broadcastTable('lineups')
   res.json({ ok: true })
 })
@@ -487,14 +509,14 @@ app.put('/api/match-goals/:matchId', adminOnly, async (req, res) => {
   const { home_team_id = 1, away_team_id = 2, goals = [] } = req.body ?? {}
   const row = { match_id: req.params.matchId, home_team_id, away_team_id, goals, ts: Date.now() }
   const { error } = await supabase.from('match_goals').upsert(row, { onConflict: 'match_id' })
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   broadcastTable('match_goals')
   res.json({ ok: true })
 })
 
 app.delete('/api/match-goals/:matchId', adminOnly, async (req, res) => {
   const { error } = await supabase.from('match_goals').delete().eq('match_id', req.params.matchId)
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   broadcastTable('match_goals')
   res.json({ ok: true })
 })
@@ -505,7 +527,7 @@ app.put('/api/fd-match-ids', adminOnly, async (req, res) => {
   const rows = Object.entries(map).map(([match_id, fd_id]) => ({ match_id, fd_id, ts: Date.now() }))
   if (!rows.length) return res.json({ ok: true, count: 0 })
   const { error } = await supabase.from('fd_match_ids').upsert(rows, { onConflict: 'match_id' })
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   res.json({ ok: true, count: rows.length })
 })
 
@@ -524,7 +546,7 @@ app.put('/api/scorer-picks/:id', async (req, res) => {
 
   const row = { id, email, match_id, team, player_id, player_name, ts: Date.now() }
   const { error } = await supabase.from('scorer_picks').upsert(row, { onConflict: 'id' })
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   broadcastTable('scorer_picks')
   res.json({ ok: true })
 })
@@ -539,7 +561,7 @@ app.post('/api/trivia/question', adminOnly, async (req, res) => {
     { prompt_id: promptId, available_at: availableAt, created_at: Date.now() },
     { onConflict: 'prompt_id' }
   )
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   await broadcastTriviaState()
   res.json({ ok: true })
 })
@@ -553,7 +575,7 @@ app.post('/api/trivia/seen', triviaOnly, async (req, res) => {
     { id, user_id: userId, prompt_id: promptId, seen_at: Date.now() },
     { onConflict: 'id', ignoreDuplicates: true }
   )
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   await broadcastTriviaState()
   res.json({ ok: true })
 })
@@ -568,7 +590,7 @@ app.post('/api/trivia/score', triviaOnly, async (req, res) => {
   const { error } = await supabase.from('trivia_scores').insert({
     id, user_id: userId, prompt_id: promptId, is_correct: isCorrect ?? false, answered_at: Date.now(),
   })
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) return fail(res, error, req.path)
   await broadcastTriviaState()
   res.json({ ok: true, scored: isCorrect ?? false })
 })

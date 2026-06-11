@@ -70,6 +70,10 @@ export async function apiDeleteParticipant(email) {
 }
 
 // ── Picks ─────────────────────────────────────────────────────
+export async function apiGetMyPicks(email) {
+  return apiFetch(`/api/my-picks?email=${encodeURIComponent(email)}`)
+}
+
 export async function apiSavePick(email, matchId, home, away, winner) {
   const id = `${email}_${matchId}`
   return apiFetch(`/api/picks/${encodeURIComponent(id)}`, {
