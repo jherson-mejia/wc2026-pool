@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import { Readable } from 'node:stream'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -143,6 +144,50 @@ function adminOnly(req, res, next) {
   next()
 }
 
+// ── Trivia auth middleware (HMAC-SHA256 + timestamp) ──────────
+// Signature = HMAC-SHA256(TRIVIA_SECRET, "{userId}:{promptId}:{timestamp}")
+// Timestamp must be within ±5 minutes to prevent replay attacks.
+function triviaOnly(req, res, next) {
+  if (!process.env.TRIVIA_SECRET) return res.status(503).json({ error: 'Trivia not configured' })
+  const { userId, promptId, timestamp, signature } = req.body ?? {}
+  if (!timestamp || !signature) return res.status(401).json({ error: 'Missing signature' })
+  if (Math.abs(Date.now() - timestamp) > 5 * 60 * 1000) return res.status(401).json({ error: 'Request expired' })
+  const expected = createHmac('sha256', process.env.TRIVIA_SECRET)
+    .update(`${userId}:${promptId}:${timestamp}`)
+    .digest('hex')
+  const sigBuf = Buffer.from(signature, 'hex')
+  const expBuf = Buffer.from(expected, 'hex')
+  if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+    return res.status(401).json({ error: 'Invalid signature' })
+  }
+  next()
+}
+
+// ── Trivia state broadcast ────────────────────────────────────
+async function broadcastTriviaState() {
+  const [{ data: questions }, { data: scores }, { data: impressions }, { data: parts }] = await Promise.all([
+    supabase.from('trivia_questions').select('*').order('available_at', { ascending: false }),
+    supabase.from('trivia_scores').select('user_id, prompt_id, is_correct'),
+    supabase.from('trivia_impressions').select('user_id, prompt_id'),
+    supabase.from('participants').select('user_id, name'),
+  ])
+  const nameMap = {}
+  for (const p of parts ?? []) nameMap[p.user_id] = p.name
+  const countMap = {}
+  for (const s of scores ?? []) {
+    if (s.is_correct) countMap[s.user_id] = (countMap[s.user_id] ?? 0) + 1
+  }
+  const leaderboard = Object.entries(countMap)
+    .map(([userId, pts]) => ({ userId, name: nameMap[userId] ?? 'Unknown', pts }))
+    .sort((a, b) => b.pts - a.pts)
+  broadcast('trivia_state', {
+    questions:   (questions   ?? []).map(q => ({ promptId: q.prompt_id, availableAt: q.available_at })),
+    leaderboard,
+    answers:     (scores      ?? []).map(s => ({ userId: s.user_id, promptId: s.prompt_id, isCorrect: s.is_correct })),
+    impressions: (impressions ?? []).map(i => ({ userId: i.user_id, promptId: i.prompt_id })),
+  })
+}
+
 // ── SSE endpoint ──────────────────────────────────────────────
 app.get('/api/events', async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream')
@@ -161,6 +206,7 @@ app.get('/api/events', async (req, res) => {
     const [
       { data: parts }, { data: results }, { data: ko }, { data: picks }, { data: kos },
       { data: lineupRows }, { data: goalsRows }, { data: scorerPickRows }, { data: metaRows },
+      { data: triviaQRows }, { data: triviaScoreRows }, { data: triviaImpRows },
     ] = await Promise.all([
       supabase.from('participants').select('*'),
       supabase.from('results').select('*'),
@@ -171,6 +217,9 @@ app.get('/api/events', async (req, res) => {
       supabase.from('match_goals').select('*'),
       supabase.from('scorer_picks').select('*'),
       supabase.from('match_meta').select('*'),
+      supabase.from('trivia_questions').select('*'),
+      supabase.from('trivia_scores').select('user_id, prompt_id, is_correct'),
+      supabase.from('trivia_impressions').select('user_id, prompt_id'),
     ])
 
     const resultMap = {}
@@ -201,6 +250,22 @@ app.get('/api/events', async (req, res) => {
     write('match_goals',  goalsMap)
     write('scorer_picks', rowsToScorerPicks(scorerPickRows ?? []))
     write('match_meta',   metaMap)
+
+    const nameMap = {}
+    for (const p of parts ?? []) nameMap[p.user_id] = p.name
+    const countMap = {}
+    for (const s of triviaScoreRows ?? []) {
+      if (s.is_correct) countMap[s.user_id] = (countMap[s.user_id] ?? 0) + 1
+    }
+    const triviaLeaderboard = Object.entries(countMap)
+      .map(([userId, pts]) => ({ userId, name: nameMap[userId] ?? 'Unknown', pts }))
+      .sort((a, b) => b.pts - a.pts)
+    write('trivia_state', {
+      questions:   (triviaQRows   ?? []).map(q => ({ promptId: q.prompt_id, availableAt: q.available_at })),
+      leaderboard: triviaLeaderboard,
+      answers:     (triviaScoreRows ?? []).map(s => ({ userId: s.user_id, promptId: s.prompt_id, isCorrect: s.is_correct })),
+      impressions: (triviaImpRows  ?? []).map(i => ({ userId: i.user_id, promptId: i.prompt_id })),
+    })
   } catch (err) {
     console.error('[SSE] initial snapshot failed:', err.message)
     res.write(`event: error\ndata: ${JSON.stringify({ error: err.message })}\n\n`)
@@ -462,6 +527,50 @@ app.put('/api/scorer-picks/:id', async (req, res) => {
   if (error) return res.status(500).json({ error: error.message })
   broadcastTable('scorer_picks')
   res.json({ ok: true })
+})
+
+// ── Trivia ────────────────────────────────────────────────────
+
+// Register a new prompt window (admin sets this up alongside Redfast)
+app.post('/api/trivia/question', adminOnly, async (req, res) => {
+  const { promptId, availableAt } = req.body ?? {}
+  if (!promptId || !availableAt) return res.status(400).json({ error: 'promptId and availableAt required' })
+  const { error } = await supabase.from('trivia_questions').upsert(
+    { prompt_id: promptId, available_at: availableAt, created_at: Date.now() },
+    { onConflict: 'prompt_id' }
+  )
+  if (error) return res.status(500).json({ error: error.message })
+  await broadcastTriviaState()
+  res.json({ ok: true })
+})
+
+// Redfast fires when prompt is shown to user
+app.post('/api/trivia/seen', triviaOnly, async (req, res) => {
+  const { userId, promptId } = req.body ?? {}
+  if (!userId || !promptId) return res.status(400).json({ error: 'userId and promptId required' })
+  const id = `${userId}_${promptId}`
+  const { error } = await supabase.from('trivia_impressions').upsert(
+    { id, user_id: userId, prompt_id: promptId, seen_at: Date.now() },
+    { onConflict: 'id', ignoreDuplicates: true }
+  )
+  if (error) return res.status(500).json({ error: error.message })
+  await broadcastTriviaState()
+  res.json({ ok: true })
+})
+
+// Redfast fires on every answer (correct or wrong)
+app.post('/api/trivia/score', triviaOnly, async (req, res) => {
+  const { userId, promptId, isCorrect } = req.body ?? {}
+  if (!userId || !promptId) return res.status(400).json({ error: 'userId and promptId required' })
+  const id = `${userId}_${promptId}`
+  const { data: existing } = await supabase.from('trivia_scores').select('id').eq('id', id).maybeSingle()
+  if (existing) return res.json({ ok: true, scored: false, alreadyAnswered: true })
+  const { error } = await supabase.from('trivia_scores').insert({
+    id, user_id: userId, prompt_id: promptId, is_correct: isCorrect ?? false, answered_at: Date.now(),
+  })
+  if (error) return res.status(500).json({ error: error.message })
+  await broadcastTriviaState()
+  res.json({ ok: true, scored: isCorrect ?? false })
 })
 
 // ── football-data.org proxy (API key stays server-side) ───────

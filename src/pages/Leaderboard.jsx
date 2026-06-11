@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { Users, Swords, BarChart3 } from 'lucide-react'
+import { useMemo, useState, useEffect } from 'react'
+import { Users, Swords, BarChart3, Brain, Play, CheckCircle2, XCircle, Clock } from 'lucide-react'
 import { useApp } from '@/context/AppContext'
 import Countdown from '@/components/Countdown'
 import { calcTotals } from '@/lib/scoring'
@@ -78,6 +78,184 @@ const SCORING_PILLS = [
   { label: 'Final', pts: '12/22' },
 ]
 
+const TWELVE_HOURS = 12 * 60 * 60 * 1000
+
+function useCountdown(targetMs) {
+  const [remaining, setRemaining] = useState(() => Math.max(0, targetMs - Date.now()))
+  useEffect(() => {
+    if (!targetMs) return
+    const tick = () => setRemaining(Math.max(0, targetMs - Date.now()))
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [targetMs])
+  if (!targetMs || remaining <= 0) return null
+  const h = Math.floor(remaining / 3_600_000)
+  const m = Math.floor((remaining % 3_600_000) / 60_000)
+  const s = Math.floor((remaining % 60_000) / 1000)
+  return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`
+}
+
+// ── Trivia sidebar ────────────────────────────────────────────
+function TriviaLeaderboard() {
+  const { triviaState, user } = useApp()
+  const { questions, leaderboard, answers } = triviaState
+
+  const now = Date.now()
+
+  // Current active prompt: latest question where now is within its 12h window
+  const activeQuestion = useMemo(() =>
+    questions
+      .filter(q => q.availableAt <= now && now < q.availableAt + TWELVE_HOURS)
+      .sort((a, b) => b.availableAt - a.availableAt)[0] ?? null
+  , [questions, now])
+
+  // Next future prompt (not yet active)
+  const nextQuestion = useMemo(() =>
+    questions.filter(q => q.availableAt > now).sort((a, b) => a.availableAt - b.availableAt)[0] ?? null
+  , [questions, now])
+
+  const myAnswer = useMemo(() =>
+    activeQuestion
+      ? answers.find(a => a.userId === user?.userId && a.promptId === activeQuestion.promptId)
+      : null
+  , [activeQuestion, answers, user])
+
+  const expiresAt = activeQuestion ? activeQuestion.availableAt + TWELVE_HOURS : null
+  const countdown = useCountdown(myAnswer ? expiresAt : null)
+  const nextCountdown = useCountdown(!activeQuestion && nextQuestion ? nextQuestion.availableAt : null)
+
+  const [showAllTrivia, setShowAllTrivia] = useState(false)
+  const visibleTrivia  = showAllTrivia ? leaderboard : leaderboard.slice(0, 10)
+  const hiddenTrivia   = leaderboard.length - 10
+
+  const medals = ['🥇', '🥈', '🥉']
+
+  return (
+    <div className="rounded-xl border border-[#FFD706]/30 bg-gradient-to-b from-[#FFD706]/8 to-transparent overflow-hidden">
+
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3 border-b border-[#FFD706]/15">
+        <div className="flex items-center gap-2 my-1">
+          <Brain className="h-4 w-4 text-[#FFD706] shrink-0" />
+          <span className="text-sm font-extrabold text-th-text tracking-tight">WC Trivia Challenge</span>
+        </div>
+        <p className="text-[11px] text-th-muted leading-snug">
+          Bonus points for knowing your World Cup history. New question every 12 hours.
+        </p>
+      </div>
+
+      {/* ── CTA block ── */}
+      <div className="px-4 py-3 border-b border-[#FFD706]/10">
+        {!activeQuestion && !nextQuestion && (
+          <div className="flex items-center gap-2 text-[11px] text-th-muted">
+            <Clock className="h-3.5 w-3.5 shrink-0" />
+            <span>Next question coming soon</span>
+          </div>
+        )}
+
+        {!activeQuestion && nextQuestion && (
+          <div className="flex items-center gap-2 text-[11px] text-th-muted">
+            <Clock className="h-3.5 w-3.5 text-[#FFD706] shrink-0" />
+            <span>Next question in <span className="font-bold text-th-text">{nextCountdown ?? '…'}</span></span>
+          </div>
+        )}
+
+        {activeQuestion && !myAnswer && (
+          <button
+            id="trivia-cta"
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#FFD706] hover:bg-[#FFD706]/90 active:scale-95 transition-all px-4 py-2.5"
+          >
+            <Play className="h-3.5 w-3.5 text-black fill-black shrink-0" />
+            <span className="text-sm font-extrabold text-black tracking-tight">Answer Today's Question</span>
+          </button>
+        )}
+
+        {activeQuestion && myAnswer?.isCorrect && (
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+              <span className="text-sm font-bold text-emerald-400">Nailed it! +1 point</span>
+            </div>
+            {countdown && (
+              <div className="flex items-center gap-1.5 text-[11px] text-th-muted">
+                <Clock className="h-3 w-3 shrink-0" />
+                <span>Next question in <span className="font-semibold text-th-text">{countdown}</span></span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeQuestion && myAnswer && !myAnswer.isCorrect && (
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <XCircle className="h-4 w-4 text-red-400 shrink-0" />
+              <span className="text-sm font-bold text-th-text">Keep trying!</span>
+            </div>
+            <p className="text-[11px] text-th-muted">Better luck on the next one.</p>
+            {countdown && (
+              <div className="flex items-center gap-1.5 text-[11px] text-th-muted">
+                <Clock className="h-3 w-3 shrink-0" />
+                <span>Next question in <span className="font-semibold text-th-text">{countdown}</span></span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Leaderboard ── */}
+      {leaderboard.length === 0 ? (
+        <div className="px-4 py-5 text-center">
+          <p className="text-xs font-semibold text-th-text">No scores yet</p>
+          <p className="text-[11px] text-th-muted mt-0.5">Be the first to answer correctly!</p>
+        </div>
+      ) : (
+        <>
+        <div className="divide-y divide-th-border/60">
+          {visibleTrivia.map((entry, i) => {
+            const isMe = entry.userId === user?.userId
+            return (
+              <div key={entry.userId} className={cn(
+                'flex items-center gap-2.5 px-4 py-2.5 transition-colors',
+                isMe ? 'bg-[#FFD706]/8' : 'hover:bg-th-border/20',
+              )}>
+                <span className="w-5 text-center shrink-0 text-sm leading-none">
+                  {i < 3
+                    ? medals[i]
+                    : <span className="text-xs font-bold text-th-muted tabular-nums">{i + 1}</span>}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className={cn('text-xs font-semibold truncate block', isMe ? 'text-[#FFD706]' : 'text-th-text')}>
+                    {entry.name}
+                    {isMe && <span className="ml-1 text-[10px] text-[#FFD706]/60 font-normal">you</span>}
+                  </span>
+                </span>
+                <div className="text-right shrink-0">
+                  <span className="text-sm font-extrabold text-[#FFD706] tabular-nums">{entry.pts}</span>
+                  <span className="text-[10px] text-th-muted ml-0.5">pts</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        {!showAllTrivia && hiddenTrivia > 0 && (
+          <button
+            onClick={() => setShowAllTrivia(true)}
+            className="w-full text-xs font-semibold text-th-muted hover:text-th-text border-t border-[#FFD706]/10 py-2.5 transition-colors"
+          >
+            View {hiddenTrivia} more
+          </button>
+        )}
+        </>
+      )}
+
+      <div className="px-4 py-2.5 border-t border-[#FFD706]/10 bg-[#FFD706]/5">
+        <p className="text-[10px] text-th-muted text-center">1 pt per correct answer · separate from pool picks</p>
+      </div>
+    </div>
+  )
+}
+
 export default function Leaderboard() {
   const { participants, allPicks, myPicks, results, user, allScorer, matchGoals } = useApp()
 
@@ -104,13 +282,18 @@ export default function Leaderboard() {
 
   const totalMatches = GROUP_MATCHES.length + KO_ROUNDS.reduce((s, r) => s + r.count, 0)
 
-  const myRankIdx = ranked.findIndex(p => p.email === user?.email)
-  const myEntry   = myRankIdx >= 0 ? ranked[myRankIdx] : null
+  const myRankIdx  = ranked.findIndex(p => p.email === user?.email)
+  const myEntry    = myRankIdx >= 0 ? ranked[myRankIdx] : null
   const showPodium = ranked.length >= 1
   const restOfList = ranked.length >= 3 ? ranked.slice(3) : []
 
+  const [showAllMain, setShowAllMain] = useState(false)
+  const visibleMain   = showAllMain ? restOfList : restOfList.slice(0, 10)
+  const hiddenMain    = restOfList.length - 10
+
   return (
-    <div className="max-w-2xl lg:max-w-3xl mx-auto px-4 py-6">
+    <div className="max-w-5xl mx-auto px-4 py-6 lg:grid lg:grid-cols-[1fr_260px] lg:gap-6 lg:items-start">
+    <div>
 
       {/* ── Page header ── */}
       <div className="mb-6">
@@ -176,7 +359,7 @@ export default function Leaderboard() {
         <section>
           <SectionDivider label="All rankings" />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5 stagger-children">
-            {restOfList.map((p, idx) => {
+            {visibleMain.map((p, idx) => {
               const i = idx + 3
               const isMe = p.email === user?.email
               return (
@@ -201,6 +384,14 @@ export default function Leaderboard() {
               )
             })}
           </div>
+          {!showAllMain && hiddenMain > 0 && (
+            <button
+              onClick={() => setShowAllMain(true)}
+              className="mt-3 w-full text-xs font-semibold text-th-muted hover:text-th-text border border-th-border rounded-lg py-2 transition-colors"
+            >
+              View {hiddenMain} more
+            </button>
+          )}
         </section>
       )}
 
@@ -260,6 +451,11 @@ export default function Leaderboard() {
           </div>
         </section>
       )}
+    </div>
+
+      <aside className="mt-6 lg:mt-0 lg:sticky lg:top-24 pt-2">
+        <TriviaLeaderboard />
+      </aside>
     </div>
   )
 }

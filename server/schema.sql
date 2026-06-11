@@ -103,6 +103,39 @@ create table if not exists scorer_picks (
 create index if not exists scorer_picks_email_idx    on scorer_picks (email);
 create index if not exists scorer_picks_match_id_idx on scorer_picks (match_id);
 
+-- ── trivia_questions ─────────────────────────────────────────────
+-- Admin registers each Redfast prompt with its 12h window start time.
+create table if not exists trivia_questions (
+  prompt_id    text   primary key,   -- Redfast prompt UUID
+  available_at bigint not null,      -- epoch ms when prompt becomes active
+  created_at   bigint default (extract(epoch from now()) * 1000)::bigint
+);
+
+create index if not exists trivia_questions_available_at_idx on trivia_questions (available_at);
+
+-- ── trivia_impressions ────────────────────────────────────────────
+-- Redfast fires when the prompt is shown to a user. One row per (user × prompt).
+create table if not exists trivia_impressions (
+  id        text    primary key,   -- "{userId}_{promptId}"
+  user_id   uuid    not null references participants(user_id),
+  prompt_id text    not null,
+  seen_at   bigint  default (extract(epoch from now()) * 1000)::bigint
+);
+
+create index if not exists trivia_impressions_user_id_idx on trivia_impressions (user_id);
+
+-- ── trivia_scores ─────────────────────────────────────────────────
+-- Redfast fires on every answer (correct or wrong). One row per (user × prompt).
+create table if not exists trivia_scores (
+  id          text    primary key,   -- "{userId}_{promptId}"
+  user_id     uuid    not null,
+  prompt_id   text    not null,
+  is_correct  boolean not null default false,
+  answered_at bigint  default (extract(epoch from now()) * 1000)::bigint
+);
+
+create index if not exists trivia_scores_user_id_idx on trivia_scores (user_id);
+
 -- ── match_meta ─────────────────────────────────────────────────
 -- Venue + referee (from lineup fetch) + odds (from schedule sync).
 create table if not exists match_meta (
@@ -130,7 +163,10 @@ alter table fd_match_ids disable row level security;
 alter table lineups      disable row level security;
 alter table match_goals  disable row level security;
 alter table scorer_picks disable row level security;
-alter table match_meta   disable row level security;
+alter table match_meta          disable row level security;
+alter table trivia_questions    disable row level security;
+alter table trivia_impressions  disable row level security;
+alter table trivia_scores       disable row level security;
 
 -- ================================================================
 -- Realtime
@@ -159,4 +195,19 @@ exception when others then null; end $$;
 do $$
 begin
   alter publication supabase_realtime add table ko_matches;
+exception when others then null; end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table trivia_questions;
+exception when others then null; end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table trivia_impressions;
+exception when others then null; end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table trivia_scores;
 exception when others then null; end $$;

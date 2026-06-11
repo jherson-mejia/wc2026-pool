@@ -141,17 +141,18 @@ export async function apiDeleteKoMatch(matchId) {
 }
 
 // ── SSE (real-time updates from server) ───────────────────────
-export function listenSSE({ onParticipants, onResults, onKoMatches, onPicks, onKickoffs, onLineups, onScorerPicks, onMatchGoals, onMatchMeta }) {
+export function listenSSE({ onParticipants, onResults, onKoMatches, onPicks, onKickoffs, onLineups, onScorerPicks, onMatchGoals, onMatchMeta, onTriviaState }) {
   const es = new EventSource('/api/events')
-  es.addEventListener('participants', e => onParticipants?.(JSON.parse(e.data)))
-  es.addEventListener('results',      e => onResults?.(JSON.parse(e.data)))
-  es.addEventListener('ko_matches',   e => onKoMatches?.(JSON.parse(e.data)))
-  es.addEventListener('picks',        e => onPicks?.(JSON.parse(e.data)))
-  es.addEventListener('kickoffs',     e => onKickoffs?.(JSON.parse(e.data)))
-  es.addEventListener('lineups',      e => onLineups?.(JSON.parse(e.data)))
-  es.addEventListener('scorer_picks', e => onScorerPicks?.(JSON.parse(e.data)))
-  es.addEventListener('match_goals',  e => onMatchGoals?.(JSON.parse(e.data)))
-  es.addEventListener('match_meta',   e => onMatchMeta?.(JSON.parse(e.data)))
+  es.addEventListener('participants',  e => onParticipants?.(JSON.parse(e.data)))
+  es.addEventListener('results',       e => onResults?.(JSON.parse(e.data)))
+  es.addEventListener('ko_matches',    e => onKoMatches?.(JSON.parse(e.data)))
+  es.addEventListener('picks',         e => onPicks?.(JSON.parse(e.data)))
+  es.addEventListener('kickoffs',      e => onKickoffs?.(JSON.parse(e.data)))
+  es.addEventListener('lineups',       e => onLineups?.(JSON.parse(e.data)))
+  es.addEventListener('scorer_picks',  e => onScorerPicks?.(JSON.parse(e.data)))
+  es.addEventListener('match_goals',   e => onMatchGoals?.(JSON.parse(e.data)))
+  es.addEventListener('match_meta',    e => onMatchMeta?.(JSON.parse(e.data)))
+  es.addEventListener('trivia_state',  e => onTriviaState?.(JSON.parse(e.data)))
   es.onerror = () => console.warn('SSE reconnecting…')
   return () => es.close()
 }

@@ -26,6 +26,7 @@ const INIT = {
   matchMeta:     {},
   allScorer:     {},   // { email → { matchId_team → pick } }
   myScorer:      {},   // { matchId_team → pick }
+  triviaState:   { questions: [], leaderboard: [], answers: [], impressions: [] },
 }
 
 function reducer(state, action) {
@@ -46,6 +47,7 @@ function reducer(state, action) {
       const myScorer = action.scorerPicks[state.user?.email] || {}
       return { ...state, allScorer: action.scorerPicks, myScorer }
     }
+    case 'SET_TRIVIA':    return { ...state, triviaState: action.triviaState }
     case 'PATCH_PICK':    return { ...state, myPicks: { ...state.myPicks, [action.matchId]: action.pick } }
     case 'PATCH_RESULT':  return { ...state, results: { ...state.results, [action.matchId]: action.result } }
     case 'DEL_RESULT': {
@@ -100,7 +102,8 @@ export function AppProvider({ children }) {
         onLineups:     lineups      => dispatch({ type: 'SET_LINEUPS', lineups }),
         onMatchGoals:  matchGoals   => dispatch({ type: 'SET_GOALS', matchGoals }),
         onMatchMeta:   matchMeta    => dispatch({ type: 'SET_META', matchMeta }),
-        onScorerPicks: scorerPicks  => dispatch({ type: 'SET_SCORER', scorerPicks }),
+        onScorerPicks:      scorerPicks  => dispatch({ type: 'SET_SCORER', scorerPicks }),
+        onTriviaState: triviaState => dispatch({ type: 'SET_TRIVIA', triviaState }),
         onPicks: picks => {
           dispatch({ type: 'SET_ALL_PICKS', picks })
           dispatch({ type: 'SET_PICKS', picks: picks[state.user.email] || {} })
