@@ -335,9 +335,10 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
     try {
       const apiMatches = await fetchLiveOnly(apiKey)
       if (!apiMatches.length) {
-        console.log('[scheduler] Live poller: no more live matches — stopping')
+        console.log('[scheduler] Live poller: no more live matches — final sync then stopping')
         liveScores = {}
         broadcast('live_scores', {})
+        runSync('post-match')
         return
       }
 
@@ -563,12 +564,9 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
       console.log('[scheduler] No matches today — no auto-polls scheduled')
     }
 
-    const activeNow = todayMs.some(({ kickoffMs }) => {
-      const elapsed = now.getTime() - kickoffMs
-      return elapsed >= 0 && elapsed <= 130 * 60_000
-    })
-    if (activeNow) {
-      console.log('[scheduler] Match in progress on startup — syncing now')
+    const hadMatchToday = todayMs.some(({ kickoffMs }) => now.getTime() >= kickoffMs)
+    if (hadMatchToday) {
+      console.log('[scheduler] Match(es) today on startup — syncing now')
       runSync('startup-active')
     }
 

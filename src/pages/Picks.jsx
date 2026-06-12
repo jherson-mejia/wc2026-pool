@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { ChevronDown, Download, Lock, Target, CheckCircle2, Zap } from 'lucide-react'
+import { ChevronDown, Download, Lock, Target, CheckCircle2, Zap, Star } from 'lucide-react'
 import { useApp } from '@/context/AppContext'
 import { useToast } from '@/components/ui/toast'
 import { GROUP_MATCHES, KO_ROUNDS, getFlag } from '@/data/worldcup'
@@ -445,8 +445,9 @@ function KORound({ round, myPicks, results, koMatches, kickoffs, onSave, isAdmin
 }
 
 // ── My Progress section ───────────────────────────────────────
-function PicksProgress({ myPicks, results, participants, allPicks, user, myScorer, matchGoals }) {
-  const { pts, correct, exact } = useMemo(
+function PicksProgress({ myPicks, results, participants, allPicks, user, allScorer, matchGoals }) {
+  const myScorer = allScorer?.[user?.email] || {}
+  const { pts, correct, exact, scorers } = useMemo(
     () => calcTotals(myPicks, results, myScorer, matchGoals),
     [myPicks, results, myScorer, matchGoals],
   )
@@ -461,13 +462,13 @@ function PicksProgress({ myPicks, results, participants, allPicks, user, myScore
       .filter(p => p.email !== '__admin__')
       .map(p => {
         const picks  = p.email === user?.email ? myPicks : (allPicks[p.email] || {})
-        const scorer = p.email === user?.email ? myScorer : {}
+        const scorer = allScorer?.[p.email] ?? {}
         return { email: p.email, pts: calcTotals(picks, results, scorer, matchGoals).pts }
       })
       .sort((a, b) => b.pts - a.pts)
     const idx = ranked.findIndex(p => p.email === user?.email)
     return idx >= 0 ? idx + 1 : null
-  }, [participants, allPicks, myPicks, results, user, myScorer, matchGoals])
+  }, [participants, allPicks, allScorer, myPicks, results, user, matchGoals])
 
   const totalPlayed = playedIds.length
 
@@ -485,7 +486,7 @@ function PicksProgress({ myPicks, results, participants, allPicks, user, myScore
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-1.5 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-4">
         <div className="rounded-lg bg-th-bg/60 border border-th-border p-2.5 text-center">
           <Target className="h-3 w-3 text-th-muted mx-auto mb-1" />
           <div className="text-xl font-extrabold text-[#FFD706] tabular-nums leading-none">{pts}</div>
@@ -500,6 +501,11 @@ function PicksProgress({ myPicks, results, participants, allPicks, user, myScore
           <Zap className="h-3 w-3 text-th-muted mx-auto mb-1" />
           <div className="text-xl font-extrabold text-th-text tabular-nums leading-none">{exact}</div>
           <div className="text-[9px] text-th-muted uppercase tracking-wider mt-1">Exact score</div>
+        </div>
+        <div className="rounded-lg bg-th-bg/60 border border-th-border p-2.5 text-center">
+          <Star className="h-3 w-3 text-th-muted mx-auto mb-1" />
+          <div className="text-xl font-extrabold text-th-text tabular-nums leading-none">{scorers}</div>
+          <div className="text-[9px] text-th-muted uppercase tracking-wider mt-1">Scorer pts</div>
         </div>
       </div>
 
@@ -532,7 +538,7 @@ function PicksProgress({ myPicks, results, participants, allPicks, user, myScore
 
 // ── Main Picks page ────────────────────────────────────────────
 export default function Picks() {
-  const { myPicks, results, liveScores, koMatches, kickoffs, user, isAdmin, savePick, participants, allPicks, lineups, myScorer, matchGoals, matchMeta, saveScorerPick } = useApp()
+  const { myPicks, results, liveScores, koMatches, kickoffs, user, isAdmin, savePick, participants, allPicks, lineups, myScorer, allScorer, matchGoals, matchMeta, saveScorerPick } = useApp()
 
   const effectiveResults = useMemo(() => {
     const safeResults = results ?? {}
@@ -604,7 +610,7 @@ export default function Picks() {
         participants={participants}
         allPicks={allPicks}
         user={user}
-        myScorer={myScorer}
+        allScorer={allScorer}
         matchGoals={matchGoals}
       />
 

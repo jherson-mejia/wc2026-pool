@@ -62,7 +62,7 @@ export function calcTotals(picks = {}, results = {}, scorerPicks = {}, matchGoal
       if (sp && mg) {
         const sv = calcScorerPoints(sp, mg)
         pts += sv
-        if (sv > 0) scorers++
+        scorers += sv
       }
     }
   })
@@ -84,7 +84,7 @@ export function calcTotals(picks = {}, results = {}, scorerPicks = {}, matchGoal
         if (sp && mg) {
           const sv = calcScorerPoints(sp, mg)
           pts += sv
-          if (sv > 0) scorers++
+          scorers += sv
         }
       }
     }
