@@ -535,12 +535,13 @@ export default function Picks() {
   const { myPicks, results, liveScores, koMatches, kickoffs, user, isAdmin, savePick, participants, allPicks, lineups, myScorer, matchGoals, matchMeta, saveScorerPick } = useApp()
 
   const effectiveResults = useMemo(() => {
+    const safeResults = results ?? {}
     const live = {}
-    for (const [mid, m] of Object.entries(liveScores)) {
-      if (results[mid]) continue
+    for (const [mid, m] of Object.entries(liveScores ?? {})) {
+      if (safeResults[mid]) continue
       live[mid] = { matchId: mid, home: m.homeScore, away: m.awayScore, winner: null }
     }
-    return Object.keys(live).length ? { ...results, ...live } : results
+    return Object.keys(live).length ? { ...safeResults, ...live } : safeResults
   }, [results, liveScores])
   const { toast } = useToast()
 
