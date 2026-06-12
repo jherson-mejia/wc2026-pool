@@ -584,10 +584,40 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
     await runLineupFetch(matchId, fdRow.fd_id)
   }
 
+  async function syncGoals(matchId) {
+    const { data: fdRow } = await supabase.from('fd_match_ids').select('fd_id').eq('match_id', matchId).single()
+    if (!fdRow?.fd_id) throw new Error(`No FD ID for ${matchId} — run Sync Schedule first`)
+    requestsToday++
+    console.log(`[scheduler] Goals sync for ${matchId} (FD: ${fdRow.fd_id})`)
+    const match = await fetchMatchDetail(apiKey, fdRow.fd_id)
+    const goals = (match.goals ?? []).map(g => ({
+      minute:      g.minute ?? null,
+      scorer_id:   g.scorer?.id   ?? null,
+      scorer_name: g.scorer?.name ?? null,
+      team_id:     g.team?.id     ?? null,
+    }))
+    const row = {
+      match_id:     matchId,
+      home_team_id: match.homeTeam?.id ?? null,
+      away_team_id: match.awayTeam?.id ?? null,
+      goals,
+      ts: Date.now(),
+    }
+    const { error } = await supabase.from('match_goals').upsert(row, { onConflict: 'match_id' })
+    if (error) throw new Error(error.message)
+    const { data: allGoals } = await supabase.from('match_goals').select('*')
+    const goalsMap = {}
+    for (const g of allGoals ?? []) goalsMap[g.match_id] = { matchId: g.match_id, homeTeamId: g.home_team_id, awayTeamId: g.away_team_id, goals: g.goals ?? [] }
+    broadcast('match_goals', goalsMap)
+    console.log(`[scheduler] Goals synced for ${matchId}: ${goals.length} goal(s)`)
+    return goals.length
+  }
+
   return {
     forceSync:       () => runSync('manual'),
     syncSchedule:    () => syncSchedule(),
     syncLineup,
+    syncGoals,
     getLiveScores:   () => liveScores,
     startLivePoller: () => { startLivePoller(); runLivePoll() },
     status:      () => ({

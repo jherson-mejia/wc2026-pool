@@ -41,7 +41,7 @@ function PodiumCard({ p, rank, isMe }) {
           {isMe && <span className="ml-1 text-[#FFD706]">·you</span>}
         </div>
         <div className="text-[10px] sm:text-xs lg:text-xs text-th-muted mt-0.5">
-          {p.correct} right · {p.exact} exact
+          {p.correct} right · {p.exact} exact · {p.scorers} scorer{p.scorers !== 1 ? 's' : ''}
         </div>
       </div>
     </div>
@@ -350,7 +350,7 @@ export default function Leaderboard() {
                 <span className="text-[10px] text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 px-1.5 py-0.5 rounded-full leading-none shrink-0">you</span>
               </div>
               <div className="text-xs text-th-muted">
-                {myEntry.correct} right · {myEntry.exact} exact
+                {myEntry.correct} right · {myEntry.exact} exact · {myEntry.scorers} scorer{myEntry.scorers !== 1 ? 's' : ''}
                 {ranked[myRankIdx - 1] && (
                   <span className="ml-2">
                     · <span className="text-[#FF8200] font-semibold">
@@ -391,7 +391,7 @@ export default function Leaderboard() {
                         <span className="text-[10px] text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 px-1.5 py-0.5 rounded-full leading-none">you</span>
                       )}
                     </div>
-                    <div className="text-xs text-th-muted mt-0.5">{p.correct} right · {p.exact} exact</div>
+                    <div className="text-xs text-th-muted mt-0.5">{p.correct} right · {p.exact} exact · {p.scorers} scorer{p.scorers !== 1 ? 's' : ''}</div>
                   </div>
                   <div className="text-lg font-extrabold text-th-text tabular-nums shrink-0">{p.pts}</div>
                 </div>
@@ -429,7 +429,7 @@ export default function Leaderboard() {
                       {p.name}
                       {isMe && <span className="text-[10px] text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 px-1.5 py-0.5 rounded-full leading-none">you</span>}
                     </div>
-                    <div className="text-xs text-th-muted mt-0.5">{p.correct} right · {p.exact} exact</div>
+                    <div className="text-xs text-th-muted mt-0.5">{p.correct} right · {p.exact} exact · {p.scorers} scorer{p.scorers !== 1 ? 's' : ''}</div>
                   </div>
                   <div className="text-lg font-extrabold text-th-text tabular-nums">{p.pts}</div>
                 </div>

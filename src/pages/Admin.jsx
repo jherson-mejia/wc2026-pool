@@ -15,7 +15,7 @@ import {
 import { calcTotals } from '@/lib/scoring'
 import { fetchFinishedMatches, mapToPoolResults } from '@/lib/autoSync'
 import { apiBulkImportPicks, LS } from '@/lib/storage'
-import { Download, Upload, Trash2, CheckCircle, Users, RefreshCw, Pencil, ChevronDown, X, Check, Clock, Zap } from 'lucide-react'
+import { Download, Upload, Trash2, CheckCircle, Users, RefreshCw, Pencil, ChevronDown, X, Check, Clock, Zap, Trophy } from 'lucide-react'
 
 // ── Enter Results ─────────────────────────────────────────────
 function ResultsTab() {
@@ -741,6 +741,75 @@ function LineupSyncCard() {
   )
 }
 
+function GoalsSyncCard() {
+  const { koMatches, matchGoals } = useApp()
+  const { toast } = useToast()
+  const [matchId, setMatchId] = useState('GA_1')
+  const [loading, setLoading] = useState(false)
+  const [log, setLog] = useState([])
+
+  const allMatches = [
+    ...GROUP_MATCHES.map(m => ({ id: m.id, label: `${m.id}: ${m.home} vs ${m.away}` })),
+    ...Object.entries(koMatches)
+      .filter(([, km]) => km?.home)
+      .map(([mid, km]) => ({ id: mid, label: `${mid}: ${km.home} vs ${km.away}` })),
+  ]
+
+  async function doSync() {
+    setLoading(true)
+    setLog([`Fetching goals for ${matchId}…`])
+    try {
+      const pw = LS.get('adminPw')
+      const res = await fetch(`/api/goals/${matchId}/sync`, {
+        method: 'POST',
+        headers: pw ? { 'X-Admin-Password': pw } : {},
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || `Server error ${res.status}`)
+      setLog([`✓ ${body.goals} goal(s) synced for ${matchId}`])
+      toast({ title: `Goals synced for ${matchId}: ${body.goals} goal(s) ✓` })
+    } catch (e) {
+      setLog([`✗ ${e.message}`])
+      toast({ title: e.message, variant: 'destructive' })
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Trophy className="h-4 w-4" /> Sync Goals
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Fetch goal scorers from football-data.org for a finished match.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex gap-2 items-center flex-wrap">
+          <select
+            value={matchId}
+            onChange={e => setMatchId(e.target.value)}
+            className="flex-1 h-9 rounded-md border border-th-border bg-th-surface-alt text-th-text text-sm px-2 focus:outline-none focus:border-[#FFD706]"
+          >
+            {allMatches.map(m => {
+              const goals = matchGoals[m.id]?.goals
+              const label = goals?.length ? ` ✓ ${goals.length}g` : ''
+              return <option key={m.id} value={m.id}>{m.label}{label}</option>
+            })}
+          </select>
+          <Button onClick={doSync} disabled={loading} size="sm">
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Syncing…' : 'Sync Goals'}
+          </Button>
+        </div>
+        {log.length > 0 && (
+          <pre className="text-xs text-th-muted font-mono bg-th-surface-alt rounded-md p-3 whitespace-pre-wrap">{log.join('\n')}</pre>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // ── Auto-Sync ─────────────────────────────────────────────────
 function SyncTab() {
   const { results, koMatches, saveResult, saveKickoffs, kickoffs } = useApp()
@@ -796,6 +865,7 @@ function SyncTab() {
     <div className="space-y-4">
       <SchedulerStatus />
       <LineupSyncCard />
+      <GoalsSyncCard />
 
       <Card>
         <CardHeader className="pb-3">

@@ -45,6 +45,13 @@ function reducer(state, action) {
       return { ...state, myPicks: merged }
     }
     case 'SET_ALL_PICKS': return { ...state, allPicks: action.picks }
+    case 'MERGE_ALL_PICKS': {
+      const merged = { ...state.allPicks }
+      for (const [email, picks] of Object.entries(action.updates)) {
+        merged[email] = { ...(merged[email] || {}), ...picks }
+      }
+      return { ...state, allPicks: merged }
+    }
     case 'SET_RESULTS':   return { ...state, results: action.results }
     case 'SET_KO':        return { ...state, koMatches: action.koMatches }
     case 'SET_PARTS':     return { ...state, participants: action.participants }
@@ -122,6 +129,15 @@ export function AppProvider({ children }) {
         onPicks: picks => {
           dispatch({ type: 'SET_ALL_PICKS', picks })
           dispatch({ type: 'SET_PICKS', picks: picks[state.user.email] || {} })
+        },
+        onPickUpdate: updates => {
+          dispatch({ type: 'MERGE_ALL_PICKS', updates })
+          const myUpdates = updates[state.user.email]
+          if (myUpdates) {
+            for (const [matchId, pick] of Object.entries(myUpdates)) {
+              dispatch({ type: 'PATCH_PICK', matchId, pick })
+            }
+          }
         },
       }),
     ]

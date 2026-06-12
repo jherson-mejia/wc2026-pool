@@ -45,7 +45,7 @@ function ScorerPicker({ lineup, bench, pick, locked, matchGoals, teamId, onSave 
   if (locked) {
     if (!pick) return <span className="text-[10px] text-th-muted italic">No scorer pick</span>
     const correct = matchGoals
-      ? matchGoals.goals?.some(g => g.scorer_id === pick.playerId && g.team_id === teamId)
+      ? matchGoals.goals?.some(g => String(g.scorer_id) === String(pick.playerId) && String(g.team_id) === String(teamId))
       : null
     return (
       <span className={cn(
@@ -386,7 +386,7 @@ function MatchDayView({ myPicks, results, kickoffs, onSave, lineups, myScorer, m
           key={day.dateKey}
           {...day}
           myPicks={myPicks}
-          results={effectiveResults}
+          results={results}
           kickoffs={kickoffs}
           onSave={onSave}
           nextMatchId={nextMatchId}

@@ -53,10 +53,23 @@ function broadcast(event, data) {
   for (const res of sseClients) res.write(msg)
 }
 
+async function fetchAllRows(table) {
+  const rows = []
+  let from = 0
+  const PAGE = 1000
+  while (true) {
+    const { data, error } = await supabase.from(table).select('*').range(from, from + PAGE - 1)
+    if (error || !data?.length) break
+    rows.push(...data)
+    if (data.length < PAGE) break
+    from += PAGE
+  }
+  return rows
+}
+
 async function broadcastTable(table) {
-  const limit = table === 'picks' || table === 'scorer_picks' ? 10000 : 1000
-  const { data, error } = await supabase.from(table).select('*').limit(limit)
-  if (error || !data) return
+  const data = await fetchAllRows(table)
+  if (!data.length && table !== 'participants') return
 
   if (table === 'participants') {
     broadcast('participants', data)
@@ -215,23 +228,24 @@ app.get('/api/events', async (req, res) => {
   // Send full snapshot on connect
   try {
     const [
-      { data: parts }, { data: results }, { data: ko }, { data: picks }, { data: kos },
-      { data: lineupRows }, { data: goalsRows }, { data: scorerPickRows }, { data: metaRows },
+      { data: parts }, { data: results }, { data: ko }, kos_data,
+      { data: lineupRows }, { data: goalsRows }, picks, scorerPickRows, { data: metaRows },
       { data: triviaQRows }, { data: triviaScoreRows }, { data: triviaImpRows },
     ] = await Promise.all([
       supabase.from('participants').select('*'),
       supabase.from('results').select('*'),
       supabase.from('ko_matches').select('*'),
-      supabase.from('picks').select('*').limit(10000),
       supabase.from('kickoffs').select('*'),
       supabase.from('lineups').select('*'),
       supabase.from('match_goals').select('*'),
-      supabase.from('scorer_picks').select('*'),
+      fetchAllRows('picks'),
+      fetchAllRows('scorer_picks'),
       supabase.from('match_meta').select('*'),
       supabase.from('trivia_questions').select('*'),
       supabase.from('trivia_scores').select('user_id, prompt_id, is_correct'),
       supabase.from('trivia_impressions').select('user_id, prompt_id'),
     ])
+    const kos = kos_data.data ?? []
 
     const resultMap = {}
     for (const r of results ?? []) resultMap[r.match_id] = rowToResult(r)
@@ -252,14 +266,14 @@ app.get('/api/events', async (req, res) => {
     write('participants', parts ?? [])
     write('results',      resultMap)
     write('ko_matches',   koMap)
-    write('picks',        rowsToPicks(picks ?? []))
+    write('picks',        rowsToPicks(picks))
     write('kickoffs',     kickoffMap)
     const metaMap = {}
     for (const r of metaRows ?? []) metaMap[r.match_id] = rowToMatchMeta(r)
 
     write('lineups',      lineupsMap)
     write('match_goals',  goalsMap)
-    write('scorer_picks', rowsToScorerPicks(scorerPickRows ?? []))
+    write('scorer_picks', rowsToScorerPicks(scorerPickRows))
     write('match_meta',   metaMap)
     write('live_scores',  scheduler?.getLiveScores() ?? {})
 
@@ -353,7 +367,7 @@ app.delete('/api/participants/:email', adminOnly, async (req, res) => {
 app.get('/api/my-picks', async (req, res) => {
   const { email } = req.query
   if (!email) return res.status(400).json({ error: 'email required' })
-  const { data, error } = await supabase.from('picks').select('*').eq('email', email)
+  const { data, error } = await supabase.from('picks').select('*').eq('email', email.toLowerCase())
   if (error) return fail(res, error, req.path)
   const picks = {}
   for (const r of data ?? []) picks[r.match_id] = rowToPick(r)
@@ -363,7 +377,8 @@ app.get('/api/my-picks', async (req, res) => {
 // ── Picks ─────────────────────────────────────────────────────
 app.put('/api/picks/:id', async (req, res) => {
   const { id } = req.params
-  const { email, match_id, home, away, winner } = req.body ?? {}
+  const { email: rawEmail, match_id, home, away, winner } = req.body ?? {}
+  const email = rawEmail?.toLowerCase()
 
   // Server-side kickoff lock
   const { data: ko } = await supabase.from('kickoffs').select('kickoff').eq('match_id', match_id).maybeSingle()
@@ -371,10 +386,11 @@ app.put('/api/picks/:id', async (req, res) => {
     return res.status(403).json({ error: 'Picks locked — match has already kicked off' })
   }
 
-  const row = { id, email, match_id, home, away, winner: winner ?? null, ts: Date.now() }
+  const ts = Date.now()
+  const row = { id, email, match_id, home, away, winner: winner ?? null, ts }
   const { error } = await supabase.from('picks').upsert(row, { onConflict: 'id' })
   if (error) return fail(res, error, req.path)
-  broadcastTable('picks')
+  broadcast('pick_update', { [email]: { [match_id]: rowToPick(row) } })
   res.json({ ok: true })
 })
 
@@ -383,8 +399,8 @@ app.post('/api/picks/bulk', adminOnly, async (req, res) => {
   const { picks } = req.body ?? {}
   if (!Array.isArray(picks) || !picks.length) return res.status(400).json({ error: 'picks array required' })
   const rows = picks.map(p => ({
-    id:       `${p.email}_${p.match_id}`,
-    email:    p.email,
+    id:       `${p.email?.toLowerCase()}_${p.match_id}`,
+    email:    p.email?.toLowerCase(),
     match_id: p.match_id,
     home:     p.home,
     away:     p.away,
@@ -640,6 +656,16 @@ app.post('/api/lineups/:matchId/sync', adminOnly, async (req, res) => {
   try {
     await scheduler.syncLineup(req.params.matchId)
     res.json({ ok: true })
+  } catch (err) {
+    res.status(502).json({ error: err.message })
+  }
+})
+
+app.post('/api/goals/:matchId/sync', adminOnly, async (req, res) => {
+  if (!scheduler) return res.status(503).json({ error: 'Scheduler not running (FD_API_KEY not set)' })
+  try {
+    const count = await scheduler.syncGoals(req.params.matchId)
+    res.json({ ok: true, goals: count })
   } catch (err) {
     res.status(502).json({ error: err.message })
   }

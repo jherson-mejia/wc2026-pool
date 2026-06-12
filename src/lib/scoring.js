@@ -39,13 +39,13 @@ export function calcScorerPoints(scorerPick, matchGoals) {
   const teamId = scorerPick.team === 'home' ? matchGoals.homeTeamId : matchGoals.awayTeamId
   if (!teamId) return 0
   const scored = matchGoals.goals.some(
-    g => g.scorer_id === scorerPick.playerId && g.team_id === teamId
+    g => String(g.scorer_id) === String(scorerPick.playerId) && String(g.team_id) === String(teamId)
   )
   return scored ? SCORER_POINTS : 0
 }
 
 export function calcTotals(picks = {}, results = {}, scorerPicks = {}, matchGoals = {}) {
-  let pts = 0, correct = 0, exact = 0
+  let pts = 0, correct = 0, exact = 0, scorers = 0
 
   GROUP_MATCHES.forEach(m => {
     const p = picks[m.id]
@@ -59,7 +59,11 @@ export function calcTotals(picks = {}, results = {}, scorerPicks = {}, matchGoal
     for (const team of ['home', 'away']) {
       const sp = scorerPicks[`${m.id}_${team}`]
       const mg = matchGoals[m.id]
-      if (sp && mg) pts += calcScorerPoints(sp, mg)
+      if (sp && mg) {
+        const sv = calcScorerPoints(sp, mg)
+        pts += sv
+        if (sv > 0) scorers++
+      }
     }
   })
 
@@ -77,10 +81,14 @@ export function calcTotals(picks = {}, results = {}, scorerPicks = {}, matchGoal
       for (const team of ['home', 'away']) {
         const sp = scorerPicks[`${mid}_${team}`]
         const mg = matchGoals[mid]
-        if (sp && mg) pts += calcScorerPoints(sp, mg)
+        if (sp && mg) {
+          const sv = calcScorerPoints(sp, mg)
+          pts += sv
+          if (sv > 0) scorers++
+        }
       }
     }
   })
 
-  return { pts, correct, exact }
+  return { pts, correct, exact, scorers }
 }
