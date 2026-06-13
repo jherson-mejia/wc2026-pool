@@ -351,7 +351,7 @@ function ParticipantCard({ p, allPicks, myPicks, results, koMatches, user, onDel
               </button>
             </div>
           )}
-          <div className="text-xs text-th-muted mt-0.5">{p.email} · {pickCount} picks · {correct} right · {exact} exact</div>
+          <div className="text-xs text-th-muted mt-0.5">{p.email} · {pickCount} picks · {correct} winner · {exact} exact</div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -615,11 +615,10 @@ function SchedulerStatus() {
 
   if (!status) return null
 
-  const usedPct  = Math.round((status.requestsToday / status.autoBudget) * 100)
-  const nextFmt  = status.nextSync
+  const nextFmt = status.nextSync
     ? new Date(status.nextSync).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
     : null
-  const lastFmt  = status.lastSync
+  const lastFmt = status.lastSync
     ? new Date(status.lastSync).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
     : null
 
@@ -636,34 +635,18 @@ function SchedulerStatus() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* Budget bar */}
-        <div>
-          <div className="flex justify-between text-xs text-th-muted mb-1">
-            <span>Daily budget used</span>
-            <span className="font-semibold text-th-text">{status.requestsToday} / {status.autoBudget} auto</span>
-          </div>
-          <div className="h-2 rounded-full bg-th-border overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{
-                width: `${Math.min(usedPct, 100)}%`,
-                background: usedPct >= 90 ? '#FF4444' : usedPct >= 60 ? '#FF8200' : '#FFD706',
-              }}
-            />
-          </div>
-          <p className="text-[10px] text-th-muted mt-1">{status.remaining} auto-requests remaining · {status.reserved} reserved for manual</p>
-        </div>
-
         {/* Stats row */}
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="bg-th-bg/60 rounded-lg border border-th-border p-2">
-            <div className="text-th-muted mb-0.5 flex items-center gap-1"><Clock className="h-3 w-3" /> Next poll</div>
+            <div className="text-th-muted mb-0.5 flex items-center gap-1"><Clock className="h-3 w-3" /> Next kickoff sync</div>
             <div className="font-semibold text-th-text">{nextFmt ?? '—'}</div>
             {status.pollsPlanned > 0 && <div className="text-[10px] text-th-muted">{status.pollsPlanned} scheduled today</div>}
           </div>
           <div className="bg-th-bg/60 rounded-lg border border-th-border p-2">
             <div className="text-th-muted mb-0.5">Last sync</div>
             <div className="font-semibold text-th-text">{lastFmt ?? 'Never'}</div>
+            {status.liveMatches > 0 && <div className="text-[10px] text-[#22c55e]">{status.liveMatches} live · polling 30s</div>}
+            {status.syncing && <div className="text-[10px] text-[#FFD706]">syncing…</div>}
           </div>
         </div>
       </CardContent>
@@ -746,6 +729,7 @@ function GoalsSyncCard() {
   const { toast } = useToast()
   const [matchId, setMatchId] = useState('GA_1')
   const [loading, setLoading] = useState(false)
+  const [syncAllLoading, setSyncAllLoading] = useState(false)
   const [log, setLog] = useState([])
 
   const allMatches = [
@@ -774,6 +758,27 @@ function GoalsSyncCard() {
     } finally { setLoading(false) }
   }
 
+  async function doSyncAll() {
+    setSyncAllLoading(true)
+    setLog(['Syncing goals for all finished matches… (2s per match)'])
+    try {
+      const pw = LS.get('adminPw')
+      const res = await fetch('/api/goals/sync-all', {
+        method: 'POST',
+        headers: pw ? { 'X-Admin-Password': pw } : {},
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || `Server error ${res.status}`)
+      const lines = [`✓ ${body.synced}/${body.total} matches synced`]
+      if (body.errors?.length) lines.push(...body.errors.map(e => `✗ ${e}`))
+      setLog(lines)
+      toast({ title: `All goals synced: ${body.synced}/${body.total} ✓` })
+    } catch (e) {
+      setLog([`✗ ${e.message}`])
+      toast({ title: e.message, variant: 'destructive' })
+    } finally { setSyncAllLoading(false) }
+  }
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -781,7 +786,7 @@ function GoalsSyncCard() {
           <Trophy className="h-4 w-4" /> Sync Goals
         </CardTitle>
         <CardDescription className="text-xs">
-          Fetch goal scorers from football-data.org for a finished match.
+          Fetch goal scorers from football-data.org. Use "Sync All" to fix scorer pts for all past matches.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -797,11 +802,21 @@ function GoalsSyncCard() {
               return <option key={m.id} value={m.id}>{m.label}{label}</option>
             })}
           </select>
-          <Button onClick={doSync} disabled={loading} size="sm">
+          <Button onClick={doSync} disabled={loading || syncAllLoading} size="sm">
             <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-            {loading ? 'Syncing…' : 'Sync Goals'}
+            {loading ? 'Syncing…' : 'Sync'}
           </Button>
         </div>
+        <Button
+          onClick={doSyncAll}
+          disabled={loading || syncAllLoading}
+          variant="secondary"
+          size="sm"
+          className="w-full text-xs"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${syncAllLoading ? 'animate-spin' : ''}`} />
+          {syncAllLoading ? 'Syncing all… (takes ~2s per match)' : 'Sync All Past Goals'}
+        </Button>
         {log.length > 0 && (
           <pre className="text-xs text-th-muted font-mono bg-th-surface-alt rounded-md p-3 whitespace-pre-wrap">{log.join('\n')}</pre>
         )}

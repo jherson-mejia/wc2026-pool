@@ -34,6 +34,8 @@ create table if not exists results (
   home       integer not null,
   away       integer not null,
   winner     text,                  -- 'home' | 'away' | null (group stage)
+  home_pens  integer,               -- penalty shootout score (null when not applicable)
+  away_pens  integer,
   ts         bigint
 );
 
@@ -136,6 +138,22 @@ create table if not exists trivia_scores (
 
 create index if not exists trivia_scores_user_id_idx on trivia_scores (user_id);
 
+-- ── live_scores ───────────────────────────────────────────────
+-- In-progress scores written every 30s by the live poller.
+-- Survives server restarts — scheduler restores from here on startup.
+create table if not exists live_scores (
+  match_id    text    primary key,
+  home        text    not null,     -- home team name
+  away        text    not null,     -- away team name
+  home_score  integer not null default 0,
+  away_score  integer not null default 0,
+  status      text    not null,     -- 'IN_PLAY' | 'PAUSED'
+  minute      integer,
+  injury_time integer,
+  goals       jsonb   not null default '[]',
+  updated_at  bigint  not null
+);
+
 -- ── match_meta ─────────────────────────────────────────────────
 -- Venue + referee (from lineup fetch) + odds (from schedule sync).
 create table if not exists match_meta (
@@ -163,6 +181,7 @@ alter table fd_match_ids disable row level security;
 alter table lineups      disable row level security;
 alter table match_goals  disable row level security;
 alter table scorer_picks disable row level security;
+alter table live_scores         disable row level security;
 alter table match_meta          disable row level security;
 alter table trivia_questions    disable row level security;
 alter table trivia_impressions  disable row level security;

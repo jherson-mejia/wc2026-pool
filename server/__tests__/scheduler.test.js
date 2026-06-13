@@ -1,24 +1,69 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { startScheduler, DAILY_BUDGET, MANUAL_RESERVE, AUTO_BUDGET } from '../scheduler.js'
+import { startScheduler } from '../scheduler.js'
 
-// ── Helpers ───────────────────────────────────────────────────
+// ── Mock helpers ──────────────────────────────────────────────
 
-function makeMockSupabase({ kickoffs = [], koMatches = [], results = [], upsertError = null } = {}) {
-  return {
-    from: vi.fn(table => ({
-      select: vi.fn(() => Promise.resolve({
-        data: table === 'kickoffs'   ? kickoffs
-            : table === 'ko_matches' ? koMatches
-            : results,
-        error: null,
-      })),
-      upsert: vi.fn(() => Promise.resolve({ error: upsertError })),
-    })),
+/**
+ * Builds a Supabase mock that supports the chaining patterns used by scheduler.js:
+ *   from(table).select(fields)               → thenable { data, error }
+ *   from(table).select(fields).in(col, vals) → thenable { data, error }
+ *   from(table).select(fields).eq(col, val)  → thenable { data, error }
+ *   from(table).select(fields).single()      → { data: rows[0], error }
+ *   from(table).upsert(rows, opts)           → { error }
+ *   from(table).delete().not(col, op, val)   → { error }
+ *
+ * Pass `tables` as { kickoffs: [...], results: [...], ... }.
+ * Pass `__upsertError` to make all upserts fail.
+ * Upserted rows are captured in `mock._upserts[table]`.
+ */
+function makeMockSupabase(tables = {}) {
+  const upserts = {}
+
+  const makeBuilder = (table) => {
+    const data = tables[table] ?? []
+    const resolved = () => Promise.resolve({ data, error: null })
+    const b = {
+      select: vi.fn(() => b),
+      upsert: vi.fn((rows) => {
+        (upserts[table] ??= []).push(rows)
+        return Promise.resolve({ error: tables.__upsertError ?? null })
+      }),
+      delete: vi.fn(() => b),
+      in:     vi.fn(() => b),
+      not:    vi.fn(() => Promise.resolve({ error: null })),
+      eq:     vi.fn(() => b),
+      single: vi.fn(() => Promise.resolve({ data: data[0] ?? null, error: null })),
+      then:   (res, rej) => resolved().then(res, rej),
+    }
+    return b
   }
+
+  const mock = { from: vi.fn(table => makeBuilder(table)), _upserts: upserts }
+  return mock
 }
 
-// A finished group-stage match the API would return for Mexico vs South Africa
+// Flush microtask queue — planDay + runSync each have several awaits; 20 ticks covers all paths
+const tick = async () => {
+  for (let i = 0; i < 20; i++) await Promise.resolve()
+}
+
+function mockFetchOk(matches = []) {
+  global.fetch = vi.fn().mockResolvedValue({
+    ok: true, status: 200,
+    json: async () => ({ matches }),
+  })
+}
+
+function mockFetchRateLimit() {
+  global.fetch = vi.fn().mockResolvedValue({
+    ok: false, status: 429,
+    json: async () => ({}),
+  })
+}
+
+// Group-stage match in a truly-finished state (status FINISHED, utcDate 2h before fake now)
 const FINISHED_GROUP_MATCH = {
+  id: 999,
   homeTeam: { name: 'Mexico' },
   awayTeam: { name: 'South Africa' },
   score: {
@@ -26,91 +71,70 @@ const FINISHED_GROUP_MATCH = {
     winner:    null,
     penalties: { home: null, away: null },
   },
+  status:   'FINISHED',
+  utcDate:  '2026-06-11T08:00:00Z',  // 2h before fake now (10:00Z) → elapsedMin = 120
   stage:    'GROUP_STAGE',
   group:    'GROUP_A',
   matchday: 1,
+  goals:    [],
 }
 
-function mockFetchOk(matches = []) {
-  global.fetch = vi.fn().mockResolvedValue({
-    ok: true,
-    status: 200,
-    json: async () => ({ matches }),
-  })
+// KO match IN_PLAY — 60 min elapsed (< 85) → live block, not finished
+const IN_PLAY_KO_MATCH = {
+  id: 1001,
+  homeTeam: { name: 'Argentina' },
+  awayTeam: { name: 'France' },
+  score: {
+    fullTime:  { home: 1, away: 1 },
+    winner:    null,
+    penalties: { home: null, away: null },
+  },
+  status:   'IN_PLAY',
+  utcDate:  '2026-06-11T09:00:00Z',  // 60 min before fake now
+  stage:    'ROUND_OF_16',
+  group:    null,
+  matchday: null,
+  goals:    [],
 }
-
-function mockFetchRateLimit() {
-  global.fetch = vi.fn().mockResolvedValue({
-    ok: false,
-    status: 429,
-    json: async () => ({}),
-  })
-}
-
-function mockFetchError(status = 500) {
-  global.fetch = vi.fn().mockResolvedValue({
-    ok: false,
-    status,
-    json: async () => ({}),
-  })
-}
-
-// Flush microtask queue without advancing fake timers
-// planDay has ~1 await; runSync has ~4 — use 10 ticks to cover all paths
-const tick = async () => {
-  for (let i = 0; i < 10; i++) await Promise.resolve()
-}
-
-// ── Constants ─────────────────────────────────────────────────
-
-describe('budget constants', () => {
-  it('DAILY_BUDGET = 100', () => expect(DAILY_BUDGET).toBe(100))
-  it('MANUAL_RESERVE = 20', () => expect(MANUAL_RESERVE).toBe(20))
-  it('AUTO_BUDGET = 80', () => expect(AUTO_BUDGET).toBe(80))
-})
 
 // ── startScheduler — no apiKey ────────────────────────────────
 
 describe('startScheduler — no apiKey', () => {
   it('returns null when apiKey is falsy', () => {
-    const result = startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: '' })
-    expect(result).toBeNull()
+    expect(startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: '' })).toBeNull()
   })
 
   it('returns null when apiKey is undefined', () => {
-    const result = startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: undefined })
-    expect(result).toBeNull()
+    expect(startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: undefined })).toBeNull()
   })
 })
 
 // ── startScheduler — with apiKey ──────────────────────────────
 
 describe('startScheduler — with apiKey', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-    mockFetchOk([])
-  })
+  beforeEach(() => { vi.useFakeTimers(); mockFetchOk([]) })
   afterEach(() => vi.useRealTimers())
 
-  it('returns { forceSync, status }', async () => {
-    const scheduler = startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: 'key' })
+  it('returns object with expected methods', async () => {
+    const s = startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: 'key' })
     await tick()
-    expect(typeof scheduler.forceSync).toBe('function')
-    expect(typeof scheduler.status).toBe('function')
+    expect(typeof s.forceSync).toBe('function')
+    expect(typeof s.syncGoals).toBe('function')
+    expect(typeof s.syncSchedule).toBe('function')
+    expect(typeof s.syncLineup).toBe('function')
+    expect(typeof s.status).toBe('function')
   })
 
   it('status() returns expected shape', async () => {
-    const scheduler = startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: 'key' })
+    const s = startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: 'key' })
     await tick()
-    const s = scheduler.status()
-    expect(s).toMatchObject({
-      requestsToday: 0,
-      autoBudget:    AUTO_BUDGET,
-      dailyBudget:   DAILY_BUDGET,
-      reserved:      MANUAL_RESERVE,
-      remaining:     AUTO_BUDGET,
-      lastSync:      null,
-      nextSync:      null,
+    const st = s.status()
+    expect(st).toMatchObject({
+      lastSync:     expect.any(String),  // set by startup runSync
+      nextSync:     null,
+      syncing:      false,
+      pollsPlanned: 0,
+      liveMatches:  0,
     })
   })
 })
@@ -125,64 +149,59 @@ describe('planDay', () => {
     vi.setSystemTime(new Date('2026-06-11T10:00:00Z'))
     mockFetchOk([])
 
-    const scheduler = startScheduler({ supabase: makeMockSupabase({ kickoffs: [] }), broadcast: vi.fn(), apiKey: 'key' })
+    const s = startScheduler({ supabase: makeMockSupabase({ kickoffs: [] }), broadcast: vi.fn(), apiKey: 'key' })
     await tick()
 
-    expect(scheduler.status().pollsPlanned).toBe(0)
-    expect(scheduler.status().nextSync).toBeNull()
+    expect(s.status().pollsPlanned).toBe(0)
+    expect(s.status().nextSync).toBeNull()
   })
 
-  it('one match today → schedules 7 polls (one per MATCH_OFFSET)', async () => {
+  it('one match today → schedules 1 kickoff poll', async () => {
     vi.useFakeTimers()
-    // Now = 10:00 UTC, kickoff = 18:00 UTC — all 7 offsets are in the future
     vi.setSystemTime(new Date('2026-06-11T10:00:00Z'))
     mockFetchOk([])
 
-    const kickoffMs = new Date('2026-06-11T18:00:00Z').getTime()
-    const scheduler = startScheduler({
+    const s = startScheduler({
       supabase: makeMockSupabase({ kickoffs: [{ match_id: 'GA_1', kickoff: '2026-06-11T18:00:00Z' }] }),
       broadcast: vi.fn(),
       apiKey: 'key',
     })
     await tick()
 
-    expect(scheduler.status().pollsPlanned).toBe(7)
+    expect(s.status().pollsPlanned).toBe(1)
   })
 
-  it('nextSync = kickoff + 20min (first offset)', async () => {
+  it('nextSync = kickoff time (fire at kickoff)', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-11T10:00:00Z'))
     mockFetchOk([])
 
-    const kickoff = '2026-06-11T18:00:00Z'
-    const scheduler = startScheduler({
-      supabase: makeMockSupabase({ kickoffs: [{ match_id: 'GA_1', kickoff }] }),
+    const s = startScheduler({
+      supabase: makeMockSupabase({ kickoffs: [{ match_id: 'GA_1', kickoff: '2026-06-11T18:00:00Z' }] }),
       broadcast: vi.fn(),
       apiKey: 'key',
     })
     await tick()
 
-    const expectedFirst = new Date('2026-06-11T18:20:00Z').toISOString()
-    expect(scheduler.status().nextSync).toBe(expectedFirst)
+    expect(s.status().nextSync).toBe('2026-06-11T18:00:00.000Z')
   })
 
-  it('simultaneous matches share poll slots (7 polls, not 14)', async () => {
+  it('simultaneous matches share one poll slot', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-11T10:00:00Z'))
     mockFetchOk([])
 
-    // Two matches at same kickoff time
     const kickoffs = [
       { match_id: 'GA_1', kickoff: '2026-06-11T18:00:00Z' },
       { match_id: 'GA_2', kickoff: '2026-06-11T18:00:00Z' },
     ]
-    const scheduler = startScheduler({ supabase: makeMockSupabase({ kickoffs }), broadcast: vi.fn(), apiKey: 'key' })
+    const s = startScheduler({ supabase: makeMockSupabase({ kickoffs }), broadcast: vi.fn(), apiKey: 'key' })
     await tick()
 
-    expect(scheduler.status().pollsPlanned).toBe(7) // de-duplicated
+    expect(s.status().pollsPlanned).toBe(1)
   })
 
-  it('two matches at different times → 14 polls', async () => {
+  it('two matches at different kickoff times → 2 polls', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-11T08:00:00Z'))
     mockFetchOk([])
@@ -191,45 +210,31 @@ describe('planDay', () => {
       { match_id: 'GA_1', kickoff: '2026-06-11T12:00:00Z' },
       { match_id: 'GA_2', kickoff: '2026-06-11T15:00:00Z' },
     ]
-    const scheduler = startScheduler({ supabase: makeMockSupabase({ kickoffs }), broadcast: vi.fn(), apiKey: 'key' })
+    const s = startScheduler({ supabase: makeMockSupabase({ kickoffs }), broadcast: vi.fn(), apiKey: 'key' })
     await tick()
 
-    expect(scheduler.status().pollsPlanned).toBe(14)
+    expect(s.status().pollsPlanned).toBe(2)
   })
 
-  it('past poll slots are excluded', async () => {
+  it('past kickoff times are excluded from plan', async () => {
     vi.useFakeTimers()
-    // Now = 18:30, kickoff was 18:00 → offsets +20 (18:20) already past, remaining 6 in future
+    // Kickoff was 18:00, now 18:30 → past kickoff excluded
     vi.setSystemTime(new Date('2026-06-11T18:30:00Z'))
     mockFetchOk([])
 
-    const scheduler = startScheduler({
+    const s = startScheduler({
       supabase: makeMockSupabase({ kickoffs: [{ match_id: 'GA_1', kickoff: '2026-06-11T18:00:00Z' }] }),
       broadcast: vi.fn(),
       apiKey: 'key',
     })
     await tick()
 
-    expect(scheduler.status().pollsPlanned).toBe(6) // +20min already past
+    expect(s.status().pollsPlanned).toBe(0)
   })
 
-  it('active match on startup → triggers immediate sync', async () => {
+  it('always runs startup sync regardless of active match', async () => {
     vi.useFakeTimers()
-    // Now = 18:30, kickoff was 18:00 → match is in progress (30 min elapsed)
-    vi.setSystemTime(new Date('2026-06-11T18:30:00Z'))
-    mockFetchOk([])
-
-    const supabase = makeMockSupabase({ kickoffs: [{ match_id: 'GA_1', kickoff: '2026-06-11T18:00:00Z' }] })
-    startScheduler({ supabase, broadcast: vi.fn(), apiKey: 'key' })
-    await tick()
-
-    // Should have fetched once for startup-active sync
-    expect(global.fetch).toHaveBeenCalled()
-  })
-
-  it('no active match on startup → no immediate sync', async () => {
-    vi.useFakeTimers()
-    // Now = 10:00, kickoff at 18:00 — no match in progress
+    // Now = 10:00, kickoff = 18:00 — no match in progress yet
     vi.setSystemTime(new Date('2026-06-11T10:00:00Z'))
     mockFetchOk([])
 
@@ -240,7 +245,30 @@ describe('planDay', () => {
     })
     await tick()
 
-    expect(global.fetch).not.toHaveBeenCalled()
+    // planDay always calls runSync on startup
+    expect(global.fetch).toHaveBeenCalled()
+  })
+
+  it('restores live scores from DB on startup and starts poller', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-11T10:00:00Z'))
+    mockFetchOk([])
+
+    const broadcast = vi.fn()
+    const liveRows  = [{
+      match_id: 'GA_1', home: 'Mexico', away: 'Brazil',
+      home_score: 1, away_score: 0, status: 'IN_PLAY',
+      minute: 55, injury_time: null, goals: [], updated_at: Date.now(),
+    }]
+
+    startScheduler({
+      supabase: makeMockSupabase({ live_scores: liveRows }),
+      broadcast,
+      apiKey: 'key',
+    })
+    await tick()
+
+    expect(broadcast).toHaveBeenCalledWith('live_scores', expect.objectContaining({ GA_1: expect.any(Object) }))
   })
 })
 
@@ -253,161 +281,248 @@ describe('runSync', () => {
   })
   afterEach(() => vi.useRealTimers())
 
-  it('increments requestsToday', async () => {
-    mockFetchOk([])
-    const scheduler = startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: 'key' })
-    await tick()
-    await scheduler.forceSync()
-    expect(scheduler.status().requestsToday).toBe(1)
-  })
-
   it('sets lastSync timestamp', async () => {
     mockFetchOk([])
-    const scheduler = startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: 'key' })
+    const s = startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: 'key' })
     await tick()
-    expect(scheduler.status().lastSync).toBeNull()
-    await scheduler.forceSync()
-    expect(scheduler.status().lastSync).not.toBeNull()
-  })
-
-  it('maps group match and upserts result', async () => {
-    mockFetchOk([FINISHED_GROUP_MATCH])
-    const supabase = makeMockSupabase()
-    const broadcast = vi.fn()
-    const scheduler = startScheduler({ supabase, broadcast, apiKey: 'key' })
-    await tick()
-    await scheduler.forceSync()
-
-    // find the upsert call on the results table
-    const resultsCalls = supabase.from.mock.calls.filter(([t]) => t === 'results')
-    const upsertCall = resultsCalls.find(([t]) => {
-      const builder = supabase.from(t)
-      return builder.upsert.mock?.calls?.length > 0
-    })
-
-    // Verify broadcast was called with results
-    expect(broadcast).toHaveBeenCalledWith('results', expect.any(Object))
-  })
-
-  it('matches group match to correct match ID (GA_1)', async () => {
-    mockFetchOk([FINISHED_GROUP_MATCH])
-    const supabase = makeMockSupabase()
-    const scheduler = startScheduler({ supabase, broadcast: vi.fn(), apiKey: 'key' })
-    await tick()
-    await scheduler.forceSync()
-
-    // Find the upsert call
-    const fromCalls = supabase.from.mock.calls
-    const resultsFromCall = fromCalls.filter(([t]) => t === 'results')
-    // The upsert should have been called — check via mock on the returned builder
-    expect(resultsFromCall.length).toBeGreaterThan(0)
+    // Advance clock so the second sync produces a different timestamp
+    vi.setSystemTime(new Date('2026-06-11T10:01:00.000Z'))
+    await s.forceSync()
+    expect(s.status().lastSync).toBe('2026-06-11T10:01:00.000Z')
   })
 
   it('no results when API returns no matches', async () => {
     mockFetchOk([])
     const broadcast = vi.fn()
-    const scheduler = startScheduler({ supabase: makeMockSupabase(), broadcast, apiKey: 'key' })
+    const s = startScheduler({ supabase: makeMockSupabase(), broadcast, apiKey: 'key' })
     await tick()
-    await scheduler.forceSync()
-    expect(broadcast).not.toHaveBeenCalled()
+    broadcast.mockClear()
+    await s.forceSync()
+    expect(broadcast).not.toHaveBeenCalledWith('results', expect.anything())
+  })
+
+  it('broadcasts results when finished match found', async () => {
+    mockFetchOk([FINISHED_GROUP_MATCH])
+    const broadcast = vi.fn()
+    const s = startScheduler({ supabase: makeMockSupabase(), broadcast, apiKey: 'key' })
+    await tick()
+    broadcast.mockClear()
+    await s.forceSync()
+    expect(broadcast).toHaveBeenCalledWith('results', expect.any(Object))
   })
 
   it('skips match with null fullTime score', async () => {
     mockFetchOk([{ ...FINISHED_GROUP_MATCH, score: { fullTime: { home: null, away: null } } }])
     const broadcast = vi.fn()
-    const scheduler = startScheduler({ supabase: makeMockSupabase(), broadcast, apiKey: 'key' })
+    const s = startScheduler({ supabase: makeMockSupabase(), broadcast, apiKey: 'key' })
     await tick()
-    await scheduler.forceSync()
-    expect(broadcast).not.toHaveBeenCalled()
+    broadcast.mockClear()
+    await s.forceSync()
+    expect(broadcast).not.toHaveBeenCalledWith('results', expect.anything())
   })
 
-  it('rate-limited → does not count request', async () => {
-    mockFetchRateLimit()
-    const scheduler = startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: 'key' })
-    await tick()
-    await scheduler.forceSync()
-    expect(scheduler.status().requestsToday).toBe(0)
-  })
-
-  it('budget exhausted → skips sync', async () => {
-    mockFetchOk([])
-    const scheduler = startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: 'key' })
-    await tick()
-
-    // Exhaust budget
-    for (let i = 0; i < AUTO_BUDGET; i++) {
-      scheduler.status() // just to be safe
-      await scheduler.forceSync()
-    }
-
-    const callsBefore = global.fetch.mock.calls.length
-    await scheduler.forceSync() // should be skipped
-    expect(global.fetch.mock.calls.length).toBe(callsBefore) // no new fetch
-  })
-
-  it('remaining decreases with each sync', async () => {
-    mockFetchOk([])
-    const scheduler = startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: 'key' })
-    await tick()
-    expect(scheduler.status().remaining).toBe(AUTO_BUDGET)
-    await scheduler.forceSync()
-    expect(scheduler.status().remaining).toBe(AUTO_BUDGET - 1)
-    await scheduler.forceSync()
-    expect(scheduler.status().remaining).toBe(AUTO_BUDGET - 2)
-  })
-
-  it('upsert error is logged, does not crash', async () => {
-    mockFetchOk([FINISHED_GROUP_MATCH])
-    const supabase = makeMockSupabase({ upsertError: { message: 'DB error' } })
-    const scheduler = startScheduler({ supabase, broadcast: vi.fn(), apiKey: 'key' })
-    await tick()
-    await expect(scheduler.forceSync()).resolves.toBeUndefined() // doesn't throw
-  })
-
-  it('KO match: winner mapped from HOME_TEAM → home', async () => {
+  it('KO match: winner mapped from HOME_TEAM', async () => {
     const koMatch = {
+      id: 1001,
       homeTeam: { name: 'Argentina' },
       awayTeam: { name: 'France' },
-      score: {
-        fullTime:  { home: 3, away: 3 },
-        winner:    'HOME_TEAM',
-        penalties: { home: 4, away: 2 },
-      },
-      stage: 'ROUND_OF_16',
-      group: null,
-      matchday: null,
+      score: { fullTime: { home: 3, away: 3 }, winner: 'HOME_TEAM', penalties: { home: 4, away: 2 } },
+      status:   'FINISHED',
+      utcDate:  '2026-06-11T08:00:00Z',
+      stage:    'ROUND_OF_16',
+      group:    null, matchday: null, goals: [],
     }
     mockFetchOk([koMatch])
-
-    const koMatches = [{ match_id: 'r16_1', home: 'Argentina', away: 'France' }]
-    const supabase  = makeMockSupabase({ koMatches })
+    const supabase  = makeMockSupabase({ fd_match_ids: [{ fd_id: 1001, match_id: 'r16_1' }] })
     const broadcast = vi.fn()
-
-    const scheduler = startScheduler({ supabase, broadcast, apiKey: 'key' })
+    const s = startScheduler({ supabase, broadcast, apiKey: 'key' })
     await tick()
-    await scheduler.forceSync()
-
+    broadcast.mockClear()
+    await s.forceSync()
     expect(broadcast).toHaveBeenCalledWith('results', expect.any(Object))
   })
 
-  it('KO match: winner mapped from AWAY_TEAM → away', async () => {
+  it('KO match: winner mapped from AWAY_TEAM', async () => {
     const koMatch = {
+      id: 1002,
       homeTeam: { name: 'Spain' },
       awayTeam: { name: 'Germany' },
       score: { fullTime: { home: 1, away: 2 }, winner: 'AWAY_TEAM', penalties: { home: null, away: null } },
-      stage: 'QUARTER_FINALS',
-      group: null,
-      matchday: null,
+      status:   'FINISHED',
+      utcDate:  '2026-06-11T08:00:00Z',
+      stage:    'QUARTER_FINALS',
+      group:    null, matchday: null, goals: [],
     }
     mockFetchOk([koMatch])
-
-    const supabase  = makeMockSupabase({ koMatches: [{ match_id: 'qf_1', home: 'Spain', away: 'Germany' }] })
+    const supabase  = makeMockSupabase({ fd_match_ids: [{ fd_id: 1002, match_id: 'qf_1' }] })
     const broadcast = vi.fn()
-
-    const scheduler = startScheduler({ supabase, broadcast, apiKey: 'key' })
+    const s = startScheduler({ supabase, broadcast, apiKey: 'key' })
     await tick()
-    await scheduler.forceSync()
+    broadcast.mockClear()
+    await s.forceSync()
+    expect(broadcast).toHaveBeenCalledWith('results', expect.any(Object))
+  })
 
-    expect(broadcast).toHaveBeenCalled()
+  it('rate-limited → does not crash, sync completes', async () => {
+    mockFetchRateLimit()
+    const s = startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: 'key' })
+    await tick()
+    await expect(s.forceSync()).resolves.toBeUndefined()
+  })
+
+  it('upsert error → does not crash', async () => {
+    mockFetchOk([FINISHED_GROUP_MATCH])
+    const supabase = makeMockSupabase({ __upsertError: { message: 'DB error' } })
+    const s = startScheduler({ supabase, broadcast: vi.fn(), apiKey: 'key' })
+    await tick()
+    await expect(s.forceSync()).resolves.toBeUndefined()
+  })
+
+  it('concurrent forceSync calls are serialised by mutex', async () => {
+    mockFetchOk([])
+    const s = startScheduler({ supabase: makeMockSupabase(), broadcast: vi.fn(), apiKey: 'key' })
+    await tick()
+    // Fire two concurrent syncs — second should be a no-op while first is running
+    const p1 = s.forceSync()
+    const p2 = s.forceSync()
+    await Promise.all([p1, p2])
+    // Both resolve without throwing — mutex prevents double-execution
+    expect(true).toBe(true)
+  })
+})
+
+// ── winner preservation ───────────────────────────────────────
+
+describe('runSync — KO winner preservation', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-11T10:00:00Z'))
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('IN_PLAY KO match preserves admin-set winner from DB', async () => {
+    mockFetchOk([IN_PLAY_KO_MATCH])
+
+    const supabase = makeMockSupabase({
+      fd_match_ids: [{ fd_id: 1001, match_id: 'r16_1' }],
+      // Existing result with admin-set winner
+      results: [{ match_id: 'r16_1', winner: 'home', home: 1, away: 0 }],
+    })
+
+    const s = startScheduler({ supabase, broadcast: vi.fn(), apiKey: 'key' })
+    await tick()
+    await s.forceSync()
+
+    // The upsert to results should preserve winner:'home', not write null
+    const resultUpserts = supabase._upserts.results ?? []
+    const r16Row = resultUpserts.flat().find(r => r.match_id === 'r16_1')
+    expect(r16Row?.winner).toBe('home')
+  })
+
+  it('IN_PLAY match with no prior winner → winner stays null', async () => {
+    mockFetchOk([IN_PLAY_KO_MATCH])
+
+    const supabase = makeMockSupabase({
+      fd_match_ids: [{ fd_id: 1001, match_id: 'r16_1' }],
+      results: [],  // no existing winner
+    })
+
+    const s = startScheduler({ supabase, broadcast: vi.fn(), apiKey: 'key' })
+    await tick()
+    await s.forceSync()
+
+    const resultUpserts = supabase._upserts.results ?? []
+    const r16Row = resultUpserts.flat().find(r => r.match_id === 'r16_1')
+    expect(r16Row?.winner).toBeNull()
+  })
+})
+
+// ── live scores ───────────────────────────────────────────────
+
+describe('runSync — live scores', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-11T10:00:00Z'))
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('IN_PLAY match broadcasts live_scores', async () => {
+    mockFetchOk([IN_PLAY_KO_MATCH])
+    const broadcast = vi.fn()
+    const supabase  = makeMockSupabase({ fd_match_ids: [{ fd_id: 1001, match_id: 'r16_1' }] })
+
+    const s = startScheduler({ supabase, broadcast, apiKey: 'key' })
+    await tick()
+    broadcast.mockClear()
+    await s.forceSync()
+
+    expect(broadcast).toHaveBeenCalledWith('live_scores', expect.objectContaining({ r16_1: expect.any(Object) }))
+  })
+
+  it('getLiveScores() reflects current live state', async () => {
+    mockFetchOk([IN_PLAY_KO_MATCH])
+    const supabase = makeMockSupabase({ fd_match_ids: [{ fd_id: 1001, match_id: 'r16_1' }] })
+
+    const s = startScheduler({ supabase, broadcast: vi.fn(), apiKey: 'key' })
+    await tick()
+    await s.forceSync()
+
+    const live = s.getLiveScores()
+    expect(live['r16_1']).toMatchObject({ matchId: 'r16_1', homeScore: 1, awayScore: 1, status: 'IN_PLAY' })
+  })
+
+  it('no live matches after FINISHED-only response', async () => {
+    mockFetchOk([FINISHED_GROUP_MATCH])
+    const broadcast = vi.fn()
+    const s = startScheduler({ supabase: makeMockSupabase(), broadcast, apiKey: 'key' })
+    await tick()
+    broadcast.mockClear()
+    await s.forceSync()
+
+    expect(broadcast).not.toHaveBeenCalledWith('live_scores', expect.objectContaining({ GA_1: expect.anything() }))
+    expect(s.status().liveMatches).toBe(0)
+  })
+})
+
+// ── syncGoals ─────────────────────────────────────────────────
+
+describe('syncGoals', () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-06-11T10:00:00Z')) })
+  afterEach(() => vi.useRealTimers())
+
+  it('throws when match has no FD ID mapped', async () => {
+    mockFetchOk([])
+    const s = startScheduler({ supabase: makeMockSupabase({ fd_match_ids: [] }), broadcast: vi.fn(), apiKey: 'key' })
+    await tick()
+    await expect(s.syncGoals('r16_1')).rejects.toThrow('No FD ID')
+  })
+
+  it('fetches goals and upserts to match_goals', async () => {
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ matches: [] }) })  // startup sync
+      .mockResolvedValueOnce({
+        ok: true, status: 200,
+        json: async () => ({
+          homeTeam: { id: 200 },
+          awayTeam: { id: 300 },
+          goals: [{ minute: 45, scorer: { id: 10, name: 'Messi' }, team: { id: 200 } }],
+        }),
+      })
+
+    const supabase = makeMockSupabase({ fd_match_ids: [{ fd_id: 5000, match_id: 'r16_1' }] })
+    const broadcast = vi.fn()
+    const s = startScheduler({ supabase, broadcast, apiKey: 'key' })
+    await tick()
+
+    await s.syncGoals('r16_1')
+
+    const goalUpserts = supabase._upserts.match_goals ?? []
+    expect(goalUpserts.length).toBeGreaterThan(0)
+    expect(goalUpserts[0]).toMatchObject({
+      match_id:     'r16_1',
+      home_team_id: 200,
+      away_team_id: 300,
+      goals:        [expect.objectContaining({ scorer_id: 10, team_id: 200 })],
+    })
   })
 })

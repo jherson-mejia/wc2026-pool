@@ -9,7 +9,8 @@ import KnockoutMatchCard from '@/components/KnockoutMatchCard'
 import HowItWorks from '@/components/HowItWorks'
 import { cn } from '@/lib/utils'
 import Countdown from '@/components/Countdown'
-import { calcTotals, calcMatchPoints, calcScorerPoints, SCORER_POINTS } from '@/lib/scoring'
+import ScorerPicker from '@/components/ScorerPicker'
+import { calcTotals, calcMatchPoints, SCORER_POINTS } from '@/lib/scoring'
 
 // ── Next-match ticking countdown ─────────────────────────────
 function TickingCountdown({ kickoff }) {
@@ -38,57 +39,6 @@ function TickingCountdown({ kickoff }) {
 }
 
 // ── Scorer picker for one team ────────────────────────────────
-function ScorerPicker({ lineup, bench, pick, locked, matchGoals, teamId, onSave }) {
-  const players = [...(lineup ?? []), ...(bench ?? [])]
-  if (!players.length) return null
-
-  if (locked) {
-    if (!pick) return <span className="text-[10px] text-th-muted italic">No scorer pick</span>
-    const correct = matchGoals
-      ? matchGoals.goals?.some(g => String(g.scorer_id) === String(pick.playerId) && String(g.team_id) === String(teamId))
-      : null
-    return (
-      <span className={cn(
-        'text-[11px] font-semibold truncate max-w-full',
-        correct === true  ? 'text-[#22c55e]'
-        : correct === false ? 'text-th-muted'
-        : 'text-th-text',
-      )}>
-        {correct === true && '✓ '}
-        {pick.playerName}
-        {correct === true && ` +${SCORER_POINTS}`}
-      </span>
-    )
-  }
-
-  return (
-    <select
-      className="w-full text-[11px] bg-th-surface-alt border border-th-border rounded px-1.5 py-1 text-th-text focus:outline-none focus:border-[#FFD706]/50 truncate"
-      value={pick?.playerId ?? ''}
-      onChange={e => {
-        const player = players.find(p => String(p.id) === e.target.value)
-        if (player) onSave(player.id, player.name)
-      }}
-    >
-      <option value="">⚽ Pick scorer…</option>
-      {lineup?.length > 0 && (
-        <optgroup label="Starting XI">
-          {lineup.map(p => (
-            <option key={p.id} value={p.id}>{p.name}{p.position ? ` · ${p.position}` : ''}</option>
-          ))}
-        </optgroup>
-      )}
-      {bench?.length > 0 && (
-        <optgroup label="Bench">
-          {bench.map(p => (
-            <option key={p.id} value={p.id}>{p.name}{p.position ? ` · ${p.position}` : ''}</option>
-          ))}
-        </optgroup>
-      )}
-    </select>
-  )
-}
-
 // ── Compact pick row (schedule-tab style with inline score input) ─
 function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, myScorerHome, myScorerAway, matchGoals, matchMeta, onSaveScorer }) {
   const homeRef  = useRef(null)
@@ -159,11 +109,11 @@ function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, my
           ) : (
             <>
               <input ref={homeRef} type="number" min="0" max="99"
-                defaultValue={hasPick ? pick.home : ''} placeholder="0"
+                defaultValue={hasPick ? pick.home : ''} placeholder="-"
                 className="score-input-sm" onChange={queue} />
               <span className="text-th-muted text-xs font-bold">–</span>
               <input ref={awayRef} type="number" min="0" max="99"
-                defaultValue={hasPick ? pick.away : ''} placeholder="0"
+                defaultValue={hasPick ? pick.away : ''} placeholder="-"
                 className="score-input-sm" onChange={queue} />
             </>
           )}
@@ -402,7 +352,7 @@ function MatchDayView({ myPicks, results, kickoffs, onSave, lineups, myScorer, m
 }
 
 // ── Knockout round ─────────────────────────────────────────────
-function KORound({ round, myPicks, results, koMatches, kickoffs, onSave, isAdmin }) {
+function KORound({ round, myPicks, results, koMatches, kickoffs, onSave, isAdmin, lineups, myScorer, matchGoals, onSaveScorer }) {
   const allTBD = Array.from({ length: round.count }, (_, i) => `${round.id}_${i + 1}`)
     .every(mid => !koMatches[mid]?.home)
 
@@ -437,6 +387,11 @@ function KORound({ round, myPicks, results, koMatches, kickoffs, onSave, isAdmin
             kickoff={kickoffs[mid]}
             onSave={onSave}
             disabled={isAdmin}
+            lineup={lineups?.[mid]}
+            myScorerHome={myScorer?.[`${mid}_home`]}
+            myScorerAway={myScorer?.[`${mid}_away`]}
+            matchGoals={matchGoals?.[mid]}
+            onSaveScorer={onSaveScorer}
           />
         )
       })}
@@ -445,11 +400,11 @@ function KORound({ round, myPicks, results, koMatches, kickoffs, onSave, isAdmin
 }
 
 // ── My Progress section ───────────────────────────────────────
-function PicksProgress({ myPicks, results, participants, allPicks, user, allScorer, matchGoals }) {
+function PicksProgress({ myPicks, results, participants, allPicks, user, allScorer, matchGoals, lineups }) {
   const myScorer = allScorer?.[user?.email] || {}
   const { pts, correct, exact, scorers } = useMemo(
-    () => calcTotals(myPicks, results, myScorer, matchGoals),
-    [myPicks, results, myScorer, matchGoals],
+    () => calcTotals(myPicks, results, myScorer, matchGoals, lineups),
+    [myPicks, results, myScorer, matchGoals, lineups],
   )
 
   const playedIds      = Object.keys(results)
@@ -463,12 +418,13 @@ function PicksProgress({ myPicks, results, participants, allPicks, user, allScor
       .map(p => {
         const picks  = p.email === user?.email ? myPicks : (allPicks[p.email] || {})
         const scorer = allScorer?.[p.email] ?? {}
-        return { email: p.email, pts: calcTotals(picks, results, scorer, matchGoals).pts }
+        const totals = calcTotals(picks, results, scorer, matchGoals, lineups)
+        return { email: p.email, joined_at: p.joined_at ?? 0, ...totals }
       })
-      .sort((a, b) => b.pts - a.pts)
+      .sort((a, b) => b.pts - a.pts || b.correct - a.correct || b.exact - a.exact || a.joined_at - b.joined_at)
     const idx = ranked.findIndex(p => p.email === user?.email)
     return idx >= 0 ? idx + 1 : null
-  }, [participants, allPicks, allScorer, myPicks, results, user, matchGoals])
+  }, [participants, allPicks, allScorer, myPicks, results, user, matchGoals, lineups])
 
   const totalPlayed = playedIds.length
 
@@ -495,7 +451,7 @@ function PicksProgress({ myPicks, results, participants, allPicks, user, allScor
         <div className="rounded-lg bg-th-bg/60 border border-th-border p-2.5 text-center">
           <CheckCircle2 className="h-3 w-3 text-th-muted mx-auto mb-1" />
           <div className="text-xl font-extrabold text-th-text tabular-nums leading-none">{correct}</div>
-          <div className="text-[9px] text-th-muted uppercase tracking-wider mt-1">Right result</div>
+          <div className="text-[9px] text-th-muted uppercase tracking-wider mt-1">Winner</div>
         </div>
         <div className="rounded-lg bg-th-bg/60 border border-th-border p-2.5 text-center">
           <Zap className="h-3 w-3 text-th-muted mx-auto mb-1" />
@@ -612,6 +568,7 @@ export default function Picks() {
         user={user}
         allScorer={allScorer}
         matchGoals={matchGoals}
+        lineups={lineups}
       />
 
       <Countdown />
@@ -631,7 +588,7 @@ export default function Picks() {
 
         <TabsContent value="group">
           <div className="text-xs text-th-muted bg-th-border/30 rounded-lg px-3 py-2 mb-4">
-            📊 Group Stage: <span className="text-th-text font-semibold">1pt</span> right result · <span className="text-[#FFD706] font-semibold">3pts</span> exact score
+            📊 Group Stage: <span className="text-th-text font-semibold">1pt</span> winner · <span className="text-[#FFD706] font-semibold">3pts</span> exact score
           </div>
           <MatchDayView
             myPicks={myPicks}
@@ -656,6 +613,10 @@ export default function Picks() {
               kickoffs={kickoffs}
               onSave={handleSave}
               isAdmin={isAdmin}
+              lineups={lineups}
+              myScorer={myScorer}
+              matchGoals={matchGoals}
+              onSaveScorer={handleSaveScorer}
             />
           </TabsContent>
         ))}

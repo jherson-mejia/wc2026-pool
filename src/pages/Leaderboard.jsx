@@ -41,7 +41,7 @@ function PodiumCard({ p, rank, isMe }) {
           {isMe && <span className="ml-1 text-[#FFD706]">·you</span>}
         </div>
         <div className="text-[10px] sm:text-xs lg:text-xs text-th-muted mt-0.5">
-          {p.correct} right · {p.exact} exact · {p.scorers} scorer{p.scorers !== 1 ? 's' : ''}
+          {p.correct} winner · {p.exact} exact · {p.scorers} scorer{p.scorers !== 1 ? 's' : ''}
         </div>
       </div>
     </div>
@@ -258,7 +258,7 @@ function TriviaLeaderboard() {
 }
 
 export default function Leaderboard() {
-  const { participants, allPicks, myPicks, results, liveScores, user, allScorer, matchGoals } = useApp()
+  const { participants, allPicks, myPicks, results, liveScores, user, allScorer, matchGoals, lineups } = useApp()
 
   // Merge live scores as provisional results so picks score in real-time
   const effectiveResults = useMemo(() => {
@@ -286,7 +286,7 @@ export default function Leaderboard() {
       .map(p => {
         const picks  = p.email === user?.email ? myPicks : (allPicks[p.email] || {})
         const scorer = allScorer[p.email] || {}
-        return { ...p, ...calcTotals(picks, effectiveResults, scorer, matchGoals) }
+        return { ...p, ...calcTotals(picks, effectiveResults, scorer, matchGoals, lineups) }
       })
       .sort((a, b) => b.pts - a.pts || b.correct - a.correct || b.exact - a.exact || (a.joined_at ?? 0) - (b.joined_at ?? 0))
   }, [participants, allPicks, myPicks, effectiveResults, user, allScorer, matchGoals])
@@ -350,7 +350,7 @@ export default function Leaderboard() {
                 <span className="text-[10px] text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 px-1.5 py-0.5 rounded-full leading-none shrink-0">you</span>
               </div>
               <div className="text-xs text-th-muted">
-                {myEntry.correct} right · {myEntry.exact} exact · {myEntry.scorers} scorer{myEntry.scorers !== 1 ? 's' : ''}
+                {myEntry.correct} winner · {myEntry.exact} exact · {myEntry.scorers} scorer{myEntry.scorers !== 1 ? 's' : ''}
                 {ranked[myRankIdx - 1] && (
                   <span className="ml-2">
                     · <span className="text-[#FF8200] font-semibold">
@@ -391,7 +391,7 @@ export default function Leaderboard() {
                         <span className="text-[10px] text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 px-1.5 py-0.5 rounded-full leading-none">you</span>
                       )}
                     </div>
-                    <div className="text-xs text-th-muted mt-0.5">{p.correct} right · {p.exact} exact · {p.scorers} scorer{p.scorers !== 1 ? 's' : ''}</div>
+                    <div className="text-xs text-th-muted mt-0.5">{p.correct} winner · {p.exact} exact · {p.scorers} scorer{p.scorers !== 1 ? 's' : ''}</div>
                   </div>
                   <div className="text-lg font-extrabold text-th-text tabular-nums shrink-0">{p.pts}</div>
                 </div>
@@ -429,7 +429,7 @@ export default function Leaderboard() {
                       {p.name}
                       {isMe && <span className="text-[10px] text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 px-1.5 py-0.5 rounded-full leading-none">you</span>}
                     </div>
-                    <div className="text-xs text-th-muted mt-0.5">{p.correct} right · {p.exact} exact · {p.scorers} scorer{p.scorers !== 1 ? 's' : ''}</div>
+                    <div className="text-xs text-th-muted mt-0.5">{p.correct} winner · {p.exact} exact · {p.scorers} scorer{p.scorers !== 1 ? 's' : ''}</div>
                   </div>
                   <div className="text-lg font-extrabold text-th-text tabular-nums">{p.pts}</div>
                 </div>
@@ -461,7 +461,7 @@ export default function Leaderboard() {
                 <span className="text-[11px] font-bold text-th-text">{pts}</span>
               </div>
             ))}
-            <span className="shrink-0 text-[11px] text-th-muted pl-1 whitespace-nowrap">right / exact</span>
+            <span className="shrink-0 text-[11px] text-th-muted pl-1 whitespace-nowrap">winner / exact</span>
           </div>
         </section>
       )}

@@ -8,6 +8,7 @@ import { existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { startScheduler } from './scheduler.js'
+import { GROUP_MATCHES } from '../src/data/worldcup.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -101,6 +102,10 @@ async function broadcastTable(table) {
     const map = {}
     for (const r of data) map[r.match_id] = rowToMatchMeta(r)
     broadcast('match_meta', map)
+  } else if (table === 'live_scores') {
+    const map = {}
+    for (const r of data) map[r.match_id] = rowToLiveScore(r)
+    broadcast('live_scores', map)
   }
 }
 
@@ -131,6 +136,18 @@ const rowToMatchMeta = r => ({
   oddsHome: r.odds_home ?? null,
   oddsDraw: r.odds_draw ?? null,
   oddsAway: r.odds_away ?? null,
+})
+const rowToLiveScore = r => ({
+  matchId:    r.match_id,
+  home:       r.home,
+  away:       r.away,
+  homeScore:  r.home_score,
+  awayScore:  r.away_score,
+  status:     r.status,
+  minute:     r.minute      ?? null,
+  injuryTime: r.injury_time ?? null,
+  goals:      r.goals       ?? [],
+  updatedAt:  r.updated_at,
 })
 
 function rowsToPicks(rows) {
@@ -231,6 +248,7 @@ app.get('/api/events', async (req, res) => {
       { data: parts }, { data: results }, { data: ko }, kos_data,
       { data: lineupRows }, { data: goalsRows }, picks, scorerPickRows, { data: metaRows },
       { data: triviaQRows }, { data: triviaScoreRows }, { data: triviaImpRows },
+      { data: liveScoreRows },
     ] = await Promise.all([
       supabase.from('participants').select('*'),
       supabase.from('results').select('*'),
@@ -244,6 +262,7 @@ app.get('/api/events', async (req, res) => {
       supabase.from('trivia_questions').select('*'),
       supabase.from('trivia_scores').select('user_id, prompt_id, is_correct'),
       supabase.from('trivia_impressions').select('user_id, prompt_id'),
+      supabase.from('live_scores').select('*'),
     ])
     const kos = kos_data.data ?? []
 
@@ -271,11 +290,14 @@ app.get('/api/events', async (req, res) => {
     const metaMap = {}
     for (const r of metaRows ?? []) metaMap[r.match_id] = rowToMatchMeta(r)
 
+    const liveMap = {}
+    for (const r of liveScoreRows ?? []) liveMap[r.match_id] = rowToLiveScore(r)
+
     write('lineups',      lineupsMap)
     write('match_goals',  goalsMap)
     write('scorer_picks', rowsToScorerPicks(scorerPickRows))
     write('match_meta',   metaMap)
-    write('live_scores',  scheduler?.getLiveScores() ?? {})
+    write('live_scores',  liveMap)
 
     const nameMap = {}
     for (const p of parts ?? []) nameMap[p.user_id] = p.name
@@ -612,6 +634,49 @@ app.post('/api/trivia/score', triviaOnly, async (req, res) => {
   res.json({ ok: true, scored: isCorrect ?? false })
 })
 
+// ── Top scorers from match_goals DB ──────────────────────────
+app.get('/api/scorers', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit ?? '20', 10), 50)
+
+    const [{ data: goalRows }, { data: koRows }] = await Promise.all([
+      supabase.from('match_goals').select('*'),
+      supabase.from('ko_matches').select('*'),
+    ])
+
+    // matchId → { home, away } team name map
+    const teamNames = {}
+    for (const m of GROUP_MATCHES) teamNames[m.id] = { home: m.home, away: m.away }
+    for (const r of koRows ?? []) teamNames[r.match_id] = { home: r.home, away: r.away }
+
+    const scorerMap = {}
+    for (const row of goalRows ?? []) {
+      const teams = teamNames[row.match_id]
+      for (const g of row.goals ?? []) {
+        if (!g.scorer_id || !g.scorer_name) continue
+        const key = String(g.scorer_id)
+        if (!scorerMap[key]) {
+          let teamName = null
+          if (teams) {
+            if (row.home_team_id != null && String(g.team_id) === String(row.home_team_id)) teamName = teams.home
+            else if (row.away_team_id != null && String(g.team_id) === String(row.away_team_id)) teamName = teams.away
+          }
+          scorerMap[key] = { player: { id: g.scorer_id, name: g.scorer_name }, team: { name: teamName }, goals: 0 }
+        }
+        scorerMap[key].goals++
+      }
+    }
+
+    const scorers = Object.values(scorerMap)
+      .sort((a, b) => b.goals - a.goals)
+      .slice(0, limit)
+
+    res.json({ scorers })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // ── football-data.org proxy (API key stays server-side) ───────
 app.use('/api/football-data', async (req, res) => {
   const apiKey = process.env.FD_API_KEY
@@ -640,8 +705,7 @@ app.use('/api/football-data', async (req, res) => {
 // ── Scheduler status ──────────────────────────────────────────
 app.get('/api/scheduler-status', adminOnly, (_req, res) => {
   res.json(scheduler?.status() ?? {
-    requestsToday: 0, autoBudget: 80, dailyBudget: 100,
-    reserved: 20, remaining: 80, lastSync: null, nextSync: null, pollsPlanned: 0,
+    lastSync: null, nextSync: null, syncing: false, pollsPlanned: 0, liveMatches: 0,
   })
 })
 
@@ -668,6 +732,40 @@ app.post('/api/goals/:matchId/sync', adminOnly, async (req, res) => {
     res.json({ ok: true, goals: count })
   } catch (err) {
     res.status(502).json({ error: err.message })
+  }
+})
+
+// Sync goals for ALL finished matches (one FD detail call per match, staggered)
+app.post('/api/goals/sync-all', adminOnly, async (_req, res) => {
+  if (!scheduler) return res.status(503).json({ error: 'Scheduler not running (FD_API_KEY not set)' })
+  try {
+    const [{ data: resultRows }, { data: fdRows }] = await Promise.all([
+      supabase.from('results').select('match_id'),
+      supabase.from('fd_match_ids').select('match_id'),
+    ])
+    const fdMatchIds = new Set((fdRows ?? []).map(r => r.match_id))
+    const toSync     = (resultRows ?? []).map(r => r.match_id).filter(id => fdMatchIds.has(id))
+
+    // Respond immediately — loop runs in background (toSync.length * 2.1s would timeout)
+    res.json({ ok: true, total: toSync.length, message: 'Sync started in background' })
+
+    let synced = 0
+    const errors = []
+    for (const matchId of toSync) {
+      try {
+        await scheduler.syncGoals(matchId)
+        synced++
+      } catch (err) {
+        errors.push(`${matchId}: ${err.message}`)
+        console.warn(`[sync-all] ${matchId}: ${err.message}`)
+      }
+      // 2.1s gap → ~28 req/min, stays under 30/min plan
+      await new Promise(r => setTimeout(r, 2100))
+    }
+    console.log(`[sync-all] Done: ${synced}/${toSync.length} synced, ${errors.length} errors`)
+  } catch (err) {
+    if (!res.headersSent) res.status(502).json({ error: err.message })
+    else console.error('[sync-all] fatal:', err.message)
   }
 })
 

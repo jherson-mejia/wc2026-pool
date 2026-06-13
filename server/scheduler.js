@@ -1,24 +1,19 @@
 /**
- * Auto-sync scheduler — manages football-data.org free tier (100 req/day).
+ * Auto-sync scheduler — football-data.org (30 req/min plan).
  *
  * Strategy:
- *   - Reserve 20 requests/day for manual admin use.
- *   - Remaining 80 are spread across match windows for the day.
- *   - For each match: polls at +20, +45, +65, +80, +95, +110, +125 min after kickoff.
- *   - Simultaneous matches share poll slots (de-duped by time).
- *   - Lineup fetches: one call per match at T-55min (separate from result-poll budget).
- *   - Replans at UTC midnight. Immediate sync if a match is in progress on startup.
+ *   - At kickoff time for each match: run a full sync, then start 30-second live poller.
+ *   - Live poller fetches only IN_PLAY/PAUSED matches every 30s.
+ *   - When no live matches remain: final full sync, then poller stops.
+ *   - Lineup fetches: one call per match at T-55min.
+ *   - Replans at UTC midnight. Immediate sync if any match kicked off today on startup.
  */
 
 import { GROUP_MATCHES } from '../src/data/worldcup.js'
 
 const KO_STAGE_SLUG = { LAST_32: 'r32', LAST_16: 'r16', QUARTER_FINALS: 'qf', SEMI_FINALS: 'sf', THIRD_PLACE: 'tp', FINAL: 'final' }
+const FD_BASE       = 'https://api.football-data.org/v4'
 
-export const DAILY_BUDGET   = 100
-export const MANUAL_RESERVE = 20
-export const AUTO_BUDGET    = DAILY_BUDGET - MANUAL_RESERVE  // 80
-
-// Mirror of autoSync.js — kept in sync manually
 const TEAM_NAME_MAP = {
   'Korea Republic':               'South Korea',
   "Côte d'Ivoire":                'Ivory Coast',
@@ -48,68 +43,12 @@ function findGroupMatch(home, away, group, matchday) {
   )
 }
 
-async function fetchFinished(apiKey) {
-  const ctrl = new AbortController()
+// Single fetch helper — replaces 4 former dedicated fetch functions
+async function fdFetch(apiKey, url) {
+  const ctrl    = new AbortController()
   const timeout = setTimeout(() => ctrl.abort(), 15_000)
   try {
-    const res = await fetch(
-      'https://api.football-data.org/v4/competitions/WC/matches?season=2026&status=FINISHED,IN_PLAY,PAUSED',
-      { headers: { 'X-Auth-Token': apiKey }, signal: ctrl.signal }
-    )
-    clearTimeout(timeout)
-    if (res.status === 429) throw new Error('rate-limited')
-    if (!res.ok) throw new Error(`FD API ${res.status}`)
-    const json = await res.json()
-    return json.matches ?? []
-  } finally {
-    clearTimeout(timeout)
-  }
-}
-
-async function fetchLiveOnly(apiKey) {
-  const ctrl = new AbortController()
-  const timeout = setTimeout(() => ctrl.abort(), 15_000)
-  try {
-    const res = await fetch(
-      'https://api.football-data.org/v4/competitions/WC/matches?season=2026&status=IN_PLAY,PAUSED',
-      { headers: { 'X-Auth-Token': apiKey }, signal: ctrl.signal }
-    )
-    clearTimeout(timeout)
-    if (res.status === 429) throw new Error('rate-limited')
-    if (!res.ok) throw new Error(`FD API ${res.status}`)
-    const json = await res.json()
-    return json.matches ?? []
-  } finally {
-    clearTimeout(timeout)
-  }
-}
-
-async function fetchAllMatches(apiKey) {
-  const ctrl = new AbortController()
-  const timeout = setTimeout(() => ctrl.abort(), 15_000)
-  try {
-    const res = await fetch(
-      'https://api.football-data.org/v4/competitions/WC/matches?season=2026',
-      { headers: { 'X-Auth-Token': apiKey }, signal: ctrl.signal }
-    )
-    clearTimeout(timeout)
-    if (res.status === 429) throw new Error('rate-limited')
-    if (!res.ok) throw new Error(`FD API ${res.status}`)
-    const json = await res.json()
-    return json.matches ?? []
-  } finally {
-    clearTimeout(timeout)
-  }
-}
-
-async function fetchMatchDetail(apiKey, fdMatchId) {
-  const ctrl = new AbortController()
-  const timeout = setTimeout(() => ctrl.abort(), 15_000)
-  try {
-    const res = await fetch(
-      `https://api.football-data.org/v4/matches/${fdMatchId}`,
-      { headers: { 'X-Auth-Token': apiKey }, signal: ctrl.signal }
-    )
+    const res = await fetch(url, { headers: { 'X-Auth-Token': apiKey }, signal: ctrl.signal })
     clearTimeout(timeout)
     if (res.status === 429) throw new Error('rate-limited')
     if (!res.ok) throw new Error(`FD API ${res.status}`)
@@ -119,22 +58,18 @@ async function fetchMatchDetail(apiKey, fdMatchId) {
   }
 }
 
-// Offsets (minutes after kickoff) to poll during a match window.
-const MATCH_OFFSETS = [20, 45, 65, 80, 95, 110, 125]
-
 export function startScheduler({ supabase, broadcast, apiKey }) {
   if (!apiKey) {
     console.log('[scheduler] FD_API_KEY not set — auto-sync disabled')
     return null
-
   }
 
-  let requestsToday  = 0
-  let timers         = []
-  let lastSync       = null
-  let nextSync       = null
-  let todayPlan      = []   // array of scheduled Date objects
-  let liveScores     = {}   // in-memory: matchId → live score snapshot
+  let syncing         = false   // mutex: prevents concurrent runSync calls
+  let timers          = []
+  let lastSync        = null
+  let nextSync        = null
+  let todayPlan       = []
+  let liveScores      = {}
   let livePollerTimer = null
 
   function clearTimers() {
@@ -142,11 +77,45 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
     timers = []
   }
 
+  // ── Live score DB persistence ─────────────────────────────────
+  async function persistLiveScores() {
+    const rows = Object.values(liveScores).map(m => ({
+      match_id:    m.matchId,
+      home:        m.home,
+      away:        m.away,
+      home_score:  m.homeScore,
+      away_score:  m.awayScore,
+      status:      m.status,
+      minute:      m.minute     ?? null,
+      injury_time: m.injuryTime ?? null,
+      goals:       m.goals      ?? [],
+      updated_at:  m.updatedAt,
+    }))
+    const activeIds = rows.map(r => r.match_id)
+    await Promise.all([
+      rows.length > 0
+        ? supabase.from('live_scores').upsert(rows, { onConflict: 'match_id' })
+        : Promise.resolve(),
+      activeIds.length > 0
+        ? supabase.from('live_scores').delete().not('match_id', 'in', `(${activeIds.join(',')})`)
+        : supabase.from('live_scores').delete().not('match_id', 'is', null),
+    ])
+  }
+
+  // ── Goals broadcast helper ────────────────────────────────────
+  async function broadcastGoals() {
+    const { data: allGoals } = await supabase.from('match_goals').select('*')
+    const goalsMap = {}
+    for (const g of allGoals ?? [])
+      goalsMap[g.match_id] = { matchId: g.match_id, homeTeamId: g.home_team_id, awayTeamId: g.away_team_id, goals: g.goals ?? [] }
+    broadcast('match_goals', goalsMap)
+  }
+
+  // ── Lineup fetch (T-55min) ────────────────────────────────────
   async function runLineupFetch(poolMatchId, fdMatchId) {
-    requestsToday++
     console.log(`[scheduler] Lineup fetch for ${poolMatchId} (FD: ${fdMatchId})`)
     try {
-      const match = await fetchMatchDetail(apiKey, fdMatchId)
+      const match = await fdFetch(apiKey, `${FD_BASE}/matches/${fdMatchId}`)
 
       const toPlayers = arr => (arr ?? []).map(p => ({
         id: p.id, name: p.name, position: p.position ?? null, shirtNumber: p.shirtNumber ?? null,
@@ -166,7 +135,6 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
       const { error } = await supabase.from('lineups').upsert(row, { onConflict: 'match_id' })
       if (error) throw new Error(error.message)
 
-      // Also store venue + referee (and update odds if not yet set)
       const referee = match.referees?.find(r => r.type === 'REFEREE')?.name ?? null
       await supabase.from('match_meta').upsert({
         match_id:  poolMatchId,
@@ -189,36 +157,35 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
       const metaMap = {}
       for (const m of allMeta ?? []) {
         metaMap[m.match_id] = {
-          matchId: m.match_id, venue: m.venue ?? null, referee: m.referee ?? null,
-          oddsHome: m.odds_home ?? null, oddsDraw: m.odds_draw ?? null, oddsAway: m.odds_away ?? null,
+          matchId:  m.match_id,
+          venue:    m.venue    ?? null,
+          referee:  m.referee  ?? null,
+          oddsHome: m.odds_home ?? null,
+          oddsDraw: m.odds_draw ?? null,
+          oddsAway: m.odds_away ?? null,
         }
       }
       broadcast('match_meta', metaMap)
       console.log(`[scheduler] Lineup + meta saved for ${poolMatchId}`)
     } catch (err) {
-      if (err.message === 'rate-limited') {
-        requestsToday--
-        console.warn(`[scheduler] Rate-limited on lineup fetch for ${poolMatchId}`)
-      } else {
-        console.error(`[scheduler] Lineup fetch error for ${poolMatchId}:`, err.message)
-      }
+      console.error(`[scheduler] Lineup fetch error for ${poolMatchId}:`, err.message)
     }
   }
 
   function rowToLineup(l) {
     return {
-      matchId:     l.match_id,
-      homeTeamId:  l.home_team_id,
-      awayTeamId:  l.away_team_id,
-      homeLineup:  l.home_lineup ?? [],
-      homeBench:   l.home_bench  ?? [],
-      awayLineup:  l.away_lineup ?? [],
-      awayBench:   l.away_bench  ?? [],
-      fetchedAt:   l.fetched_at,
+      matchId:    l.match_id,
+      homeTeamId: l.home_team_id,
+      awayTeamId: l.away_team_id,
+      homeLineup: l.home_lineup ?? [],
+      homeBench:  l.home_bench  ?? [],
+      awayLineup: l.away_lineup ?? [],
+      awayBench:  l.away_bench  ?? [],
+      fetchedAt:  l.fetched_at,
     }
   }
 
-  // ── Shared: map API matches → DB rows + newLive ─────────────
+  // ── Shared: map API matches → DB rows + newLive ───────────────
   function buildMatchPayloads(apiMatches, fdIdToMatchId) {
     const toUpsert      = []
     const goalsToUpsert = []
@@ -236,17 +203,22 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
         if (gm) matchId = gm.id
       } else {
         matchId = fdIdToMatchId[m.id] ?? null
+        // B6: warn when a KO match is missing from fd_match_ids
+        if (!matchId) {
+          console.warn(`[scheduler] KO match FD#${m.id} (${home} vs ${away}, ${m.stage}) not in fd_match_ids — run Sync Schedule`)
+        }
       }
       if (!matchId) continue
 
-      const h = m.score?.fullTime?.home
-      const a = m.score?.fullTime?.away
-      const elapsedMin    = m.utcDate
+      const h          = m.score?.fullTime?.home
+      const a          = m.score?.fullTime?.away
+      const elapsedMin = m.utcDate
         ? Math.floor((Date.now() - new Date(m.utcDate).getTime()) / 60000)
         : 999
       const trulyFinished = m.status === 'FINISHED' && elapsedMin >= 85
 
-      if (m.status === 'IN_PLAY' || m.status === 'PAUSED' || (m.status === 'FINISHED' && !trulyFinished)) {
+      // B1/B2: mutually exclusive — live block OR finished block, never both
+      if (!trulyFinished && (m.status === 'IN_PLAY' || m.status === 'PAUSED')) {
         newLive[matchId] = {
           matchId, home, away,
           homeScore:  h ?? 0,
@@ -264,9 +236,8 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
         }
         if (h != null && a != null)
           toUpsert.push({ match_id: matchId, home: h, away: a, winner: null, home_pens: null, away_pens: null, ts: Date.now() })
-      }
-
-      if (trulyFinished && h != null && a != null) {
+      } else if (trulyFinished && h != null && a != null) {
+        // Group-stage draws correctly produce winner: null
         const w      = m.score?.winner
         const winner = m.stage !== 'GROUP_STAGE'
           ? (w === 'HOME_TEAM' ? 'home' : w === 'AWAY_TEAM' ? 'away' : null)
@@ -276,16 +247,17 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
         toUpsert.push({ match_id: matchId, home: h, away: a, winner, home_pens: hp, away_pens: ap, ts: Date.now() })
       }
 
-      if (Array.isArray(m.goals)) {
+      // Only push when goals are non-empty — prevents overwriting synced data with []
+      if (Array.isArray(m.goals) && m.goals.length > 0) {
         goalsToUpsert.push({
           match_id:     matchId,
           home_team_id: m.homeTeam?.id ?? null,
           away_team_id: m.awayTeam?.id ?? null,
           goals: m.goals.map(g => ({
             minute:      g.minute,
-            scorer_id:   g.scorer?.id ?? null,
+            scorer_id:   g.scorer?.id   ?? null,
             scorer_name: g.scorer?.name ?? null,
-            team_id:     g.team?.id ?? null,
+            team_id:     g.team?.id     ?? null,
           })),
           ts: Date.now(),
         })
@@ -294,22 +266,34 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
     return { newLive, toUpsert, goalsToUpsert }
   }
 
-  // ── Shared: persist + broadcast results/goals/live ───────────
+  // ── Shared: persist + broadcast results/goals/live ────────────
   async function applyAndBroadcast({ newLive, toUpsert, goalsToUpsert }, replaceLive = true) {
     if (replaceLive) {
       liveScores = newLive
       broadcast('live_scores', liveScores)
     } else {
-      // Merge live updates without clearing matches not in this batch
       liveScores = { ...liveScores, ...newLive }
-      // Remove matches that are now truly finished (not in newLive and elapsed >= 85)
       for (const mid of Object.keys(liveScores)) {
         if (!newLive[mid]) delete liveScores[mid]
       }
       broadcast('live_scores', liveScores)
     }
+    persistLiveScores().catch(e => console.warn('[scheduler] live_scores persist failed:', e.message))
 
     if (toUpsert.length > 0) {
+      // Preserve admin-set winner for KO matches currently IN_PLAY (live push has winner: null)
+      const nullWinnerIds = toUpsert.filter(r => r.winner === null).map(r => r.match_id)
+      if (nullWinnerIds.length > 0) {
+        const { data: existingResults } = await supabase
+          .from('results').select('match_id, winner').in('match_id', nullWinnerIds)
+        const winnerMap = {}
+        for (const r of existingResults ?? []) if (r.winner != null) winnerMap[r.match_id] = r.winner
+        toUpsert = toUpsert.map(r =>
+          r.winner === null && winnerMap[r.match_id] != null
+            ? { ...r, winner: winnerMap[r.match_id] }
+            : r
+        )
+      }
       const { error } = await supabase.from('results').upsert(toUpsert, { onConflict: 'match_id' })
       if (error) throw new Error(error.message)
       const { data: allResults } = await supabase.from('results').select('*')
@@ -319,31 +303,59 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
     }
 
     if (goalsToUpsert.length > 0) {
-      const { error: ge } = await supabase.from('match_goals').upsert(goalsToUpsert, { onConflict: 'match_id' })
-      if (!ge) {
-        const { data: allGoals } = await supabase.from('match_goals').select('*')
-        const goalsMap = {}
-        for (const g of allGoals ?? []) goalsMap[g.match_id] = { matchId: g.match_id, homeTeamId: g.home_team_id, awayTeamId: g.away_team_id, goals: g.goals ?? [] }
-        broadcast('match_goals', goalsMap)
-      }
+      // Fetch existing rows to preserve team IDs and goal-level team_ids when API returns nulls
+      const matchIds = goalsToUpsert.map(r => r.match_id)
+      const { data: existing } = await supabase
+        .from('match_goals')
+        .select('match_id, home_team_id, away_team_id, goals')
+        .in('match_id', matchIds)
+      const existingMap = {}
+      for (const r of existing ?? []) existingMap[r.match_id] = r
+
+      const rows = goalsToUpsert.map(r => {
+        const ex = existingMap[r.match_id]
+        // Merge goal-level team_ids: if new goal has null, fill from existing row by scorer+minute
+        const mergedGoals = r.goals.map(ng => {
+          if (ng.team_id != null) return ng
+          const eg = (ex?.goals ?? []).find(g =>
+            String(g.scorer_id) === String(ng.scorer_id) && g.minute === ng.minute
+          )
+          return eg?.team_id ? { ...ng, team_id: eg.team_id } : ng
+        })
+        return {
+          ...r,
+          home_team_id: r.home_team_id ?? ex?.home_team_id ?? null,
+          away_team_id: r.away_team_id ?? ex?.away_team_id ?? null,
+          goals:        mergedGoals,
+        }
+      })
+
+      const { error: ge } = await supabase.from('match_goals').upsert(rows, { onConflict: 'match_id' })
+      if (!ge) await broadcastGoals()
     }
   }
 
-  // ── Per-minute live poller ────────────────────────────────────
+  // ── 30-second live poller ─────────────────────────────────────
   async function runLivePoll() {
     livePollerTimer = null
     try {
-      const apiMatches = await fetchLiveOnly(apiKey)
+      const json       = await fdFetch(apiKey, `${FD_BASE}/competitions/WC/matches?season=2026&status=IN_PLAY,PAUSED`)
+      const apiMatches = json.matches ?? []
+
       if (!apiMatches.length) {
         console.log('[scheduler] Live poller: no more live matches — final sync then stopping')
         liveScores = {}
         broadcast('live_scores', {})
+        persistLiveScores().catch(e => console.warn('[scheduler] live_scores clear failed:', e.message))
         runSync('post-match')
+        // FD API may lag a few minutes publishing final goals — schedule follow-ups
+        setTimeout(() => runSync('post-match-10m'),  10 * 60_000)
+        setTimeout(() => runSync('post-match-30m'),  30 * 60_000)
         return
       }
 
       const { data: fdRows } = await supabase.from('fd_match_ids').select('*')
-      const fdIdToMatchId = {}
+      const fdIdToMatchId    = {}
       for (const r of fdRows ?? []) fdIdToMatchId[r.fd_id] = r.match_id
 
       const payloads = buildMatchPayloads(apiMatches, fdIdToMatchId)
@@ -353,79 +365,78 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
       if (err.message !== 'rate-limited') console.error('[scheduler] Live poll error:', err.message)
     }
 
-    // Reschedule if still live
     if (Object.keys(liveScores).length > 0) {
-      livePollerTimer = setTimeout(runLivePoll, 60_000)
+      livePollerTimer = setTimeout(runLivePoll, 30_000)
     }
   }
 
   function startLivePoller() {
     if (livePollerTimer) return
-    console.log('[scheduler] Starting per-minute live poller')
-    livePollerTimer = setTimeout(runLivePoll, 60_000)
+    console.log('[scheduler] Starting 30-second live poller')
+    livePollerTimer = setTimeout(runLivePoll, 30_000)
   }
 
   // ── Scheduled sync (results + kickoffs) ──────────────────────
   async function runSync(reason = 'scheduled') {
-    if (requestsToday >= AUTO_BUDGET) {
-      console.log(`[scheduler] Budget exhausted (${requestsToday}/${AUTO_BUDGET}) — skipping`)
+    if (syncing) {
+      console.log(`[scheduler] Sync already in progress — skipping (${reason})`)
       return
     }
-    requestsToday++
+    syncing  = true
     lastSync = new Date().toISOString()
-    console.log(`[scheduler] Poll #${requestsToday} (${reason}) — fetching matches`)
+    console.log(`[scheduler] Sync (${reason}) — fetching matches`)
 
     try {
-      const apiMatches = await fetchFinished(apiKey)
+      const json       = await fdFetch(apiKey, `${FD_BASE}/competitions/WC/matches?season=2026&status=FINISHED,IN_PLAY,PAUSED`)
+      const apiMatches = json.matches ?? []
 
       const { data: fdRows } = await supabase.from('fd_match_ids').select('*')
-      const fdIdToMatchId = {}
+      const fdIdToMatchId    = {}
       for (const r of fdRows ?? []) fdIdToMatchId[r.fd_id] = r.match_id
 
-      const payloads = buildMatchPayloads(apiMatches, fdIdToMatchId)
+      const payloads  = buildMatchPayloads(apiMatches, fdIdToMatchId)
       await applyAndBroadcast(payloads, true)
 
       const liveCount = Object.keys(payloads.newLive).length
       if (liveCount > 0) {
-        console.log(`[scheduler] ${liveCount} live match(es) detected — starting per-minute poller`)
+        console.log(`[scheduler] ${liveCount} live match(es) detected — starting poller`)
         startLivePoller()
       }
 
       console.log(`[scheduler] Sync done — ${payloads.toUpsert.length} result(s), ${liveCount} live`)
     } catch (err) {
-      if (err.message === 'rate-limited') {
-        console.warn('[scheduler] Rate-limited — will retry next slot')
-        requestsToday--
-      } else {
-        console.error('[scheduler] Sync error:', err.message)
-      }
+      if (err.message === 'rate-limited') console.warn('[scheduler] Rate-limited — will retry next slot')
+      else console.error('[scheduler] Sync error:', err.message)
+    } finally {
+      syncing = false
     }
   }
 
+  // ── Full schedule sync (kickoffs + FD IDs + match meta) ───────
   async function syncSchedule() {
-    requestsToday++
     console.log('[scheduler] Syncing full schedule (kickoffs + FD IDs + match meta)…')
     try {
-      const apiMatches = await fetchAllMatches(apiKey)
+      const json       = await fdFetch(apiKey, `${FD_BASE}/competitions/WC/matches?season=2026`)
+      const apiMatches = json.matches ?? []
 
-      // Build FD ID → internal match ID map from DB, assign new KO slots for unknowns
       const { data: fdRows } = await supabase.from('fd_match_ids').select('*')
-      const fdIdToMatchId = {}
-      const slotCounts = {}
+      const fdIdToMatchId    = {}
+      const slotCounts       = {}
       for (const r of fdRows ?? []) {
         fdIdToMatchId[r.fd_id] = r.match_id
         const slug = r.match_id.replace(/_\d+$/, '')
         if (KO_STAGE_SLUG[r.match_id] === undefined && slug !== r.match_id)
           slotCounts[slug] = Math.max(slotCounts[slug] || 0, parseInt(r.match_id.split('_').pop(), 10))
       }
-      const newKoFdRows = []
-      // Sort KO matches by utcDate so slot numbering is stable
+
+      // Assign new KO slots sorted by date so numbering is stable
       const koApiMatches = apiMatches.filter(m => KO_STAGE_SLUG[m.stage] && !fdIdToMatchId[m.id])
       koApiMatches.sort((a, b) => a.utcDate.localeCompare(b.utcDate))
+      const newKoFdRows = []
       for (const m of koApiMatches) {
-        const slug = KO_STAGE_SLUG[m.stage]
+        const slug  = KO_STAGE_SLUG[m.stage]
         slotCounts[slug] = (slotCounts[slug] || 0) + 1
-        const matchId = `${slug}_${slotCounts[slug]}`
+        const matchId    = `${slug}_${slotCounts[slug]}`
         fdIdToMatchId[m.id] = matchId
         newKoFdRows.push({ match_id: matchId, fd_id: m.id, ts: Date.now() })
       }
@@ -469,7 +480,6 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
         metaRows.length    && supabase.from('match_meta').upsert(metaRows, { onConflict: 'match_id' }),
       ])
 
-      // Broadcast updated kickoffs and match_meta
       const { data: allKickoffs } = await supabase.from('kickoffs').select('*')
       const kickoffMap = {}
       for (const r of allKickoffs ?? []) kickoffMap[r.match_id] = r.kickoff
@@ -479,8 +489,12 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
       const metaMap = {}
       for (const m of allMeta ?? []) {
         metaMap[m.match_id] = {
-          matchId: m.match_id, venue: m.venue ?? null, referee: m.referee ?? null,
-          oddsHome: m.odds_home ?? null, oddsDraw: m.odds_draw ?? null, oddsAway: m.odds_away ?? null,
+          matchId:  m.match_id,
+          venue:    m.venue    ?? null,
+          referee:  m.referee  ?? null,
+          oddsHome: m.odds_home ?? null,
+          oddsDraw: m.odds_draw ?? null,
+          oddsAway: m.odds_away ?? null,
         }
       }
       broadcast('match_meta', metaMap)
@@ -488,16 +502,13 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
       console.log(`[scheduler] Schedule sync done — ${kickoffRows.length} kickoffs, ${fdIdRows.length} FD IDs, ${metaRows.length} with odds`)
       return { kickoffs: kickoffRows.length, fdIds: fdIdRows.length, odds: metaRows.length }
     } catch (err) {
-      if (err.message === 'rate-limited') {
-        requestsToday--
-        console.warn('[scheduler] Rate-limited on schedule sync')
-      } else {
-        console.error('[scheduler] Schedule sync error:', err.message)
-      }
+      if (err.message === 'rate-limited') console.warn('[scheduler] Rate-limited on schedule sync')
+      else console.error('[scheduler] Schedule sync error:', err.message)
       throw err
     }
   }
 
+  // ── Day planner ───────────────────────────────────────────────
   async function planDay() {
     clearTimers()
 
@@ -533,49 +544,64 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
       if (!fdId) continue
       const fetchAt = kickoffMs - 55 * 60_000
       if (fetchAt > now.getTime()) {
-        const delay = fetchAt - Date.now()
-        timers.push(setTimeout(() => runLineupFetch(matchId, fdId), delay))
+        timers.push(setTimeout(() => runLineupFetch(matchId, fdId), fetchAt - Date.now()))
       }
     }
 
-    // Build list of result-poll fire times (deduplicated across simultaneous matches)
-    const fireTimes = new Set()
-    for (const { kickoffMs } of todayMs) {
-      for (const offset of MATCH_OFFSETS) {
-        fireTimes.add(kickoffMs + offset * 60_000)
-      }
-    }
-
-    todayPlan = [...fireTimes]
+    // One runSync per match at kickoff time — 30s poller takes over from there
+    const fireTimes = [...new Set(todayMs.map(({ kickoffMs }) => kickoffMs))]
       .filter(ms => ms > now.getTime())
       .sort((a, b) => a - b)
-      .slice(0, AUTO_BUDGET)
+
+    todayPlan = fireTimes
 
     for (const ms of todayPlan) {
-      const delay = ms - Date.now()
-      timers.push(setTimeout(() => runSync('scheduled'), delay))
+      timers.push(setTimeout(() => runSync('scheduled'), ms - Date.now()))
     }
 
     nextSync = todayPlan.length > 0 ? new Date(todayPlan[0]).toISOString() : null
 
     if (todayPlan.length > 0) {
-      console.log(`[scheduler] Scheduled ${todayPlan.length} polls — next: ${nextSync}`)
+      console.log(`[scheduler] Scheduled ${todayPlan.length} kickoff sync(s) — next: ${nextSync}`)
     } else {
       console.log('[scheduler] No matches today — no auto-polls scheduled')
     }
 
-    const hadMatchToday = todayMs.some(({ kickoffMs }) => now.getTime() >= kickoffMs)
-    if (hadMatchToday) {
-      console.log('[scheduler] Match(es) today on startup — syncing now')
-      runSync('startup-active')
+    // Restore any live matches that were running before a restart
+    const { data: liveRows } = await supabase.from('live_scores').select('*')
+    if (liveRows?.length) {
+      for (const r of liveRows) {
+        liveScores[r.match_id] = {
+          matchId:    r.match_id,
+          home:       r.home,
+          away:       r.away,
+          homeScore:  r.home_score,
+          awayScore:  r.away_score,
+          status:     r.status,
+          minute:     r.minute      ?? null,
+          injuryTime: r.injury_time ?? null,
+          goals:      r.goals       ?? [],
+          updatedAt:  r.updated_at,
+        }
+      }
+      console.log(`[scheduler] Restored ${liveRows.length} live match(es) from DB — starting poller`)
+      broadcast('live_scores', liveScores)
+      startLivePoller()
     }
 
-    const msUntilMidnight = todayEnd.getTime() - Date.now()
-    timers.push(setTimeout(() => { requestsToday = 0; planDay() }, msUntilMidnight))
+    // Always sync on startup to pick up results/goals from any downtime
+    const hadMatchToday = todayMs.some(({ kickoffMs }) => now.getTime() >= kickoffMs)
+    const reason = hadMatchToday ? 'startup-active' : 'startup'
+    console.log(`[scheduler] Startup sync (${reason})`)
+    runSync(reason)
+
+    // Replan at midnight
+    timers.push(setTimeout(() => planDay(), todayEnd.getTime() - Date.now()))
   }
 
   planDay()
 
+  // ── Admin-callable helpers ────────────────────────────────────
   async function syncLineup(matchId) {
     const { data: fdRow } = await supabase.from('fd_match_ids').select('fd_id').eq('match_id', matchId).single()
     if (!fdRow?.fd_id) throw new Error(`No FD ID mapped for ${matchId} — run Sync Schedule first`)
@@ -585,9 +611,8 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
   async function syncGoals(matchId) {
     const { data: fdRow } = await supabase.from('fd_match_ids').select('fd_id').eq('match_id', matchId).single()
     if (!fdRow?.fd_id) throw new Error(`No FD ID for ${matchId} — run Sync Schedule first`)
-    requestsToday++
     console.log(`[scheduler] Goals sync for ${matchId} (FD: ${fdRow.fd_id})`)
-    const match = await fetchMatchDetail(apiKey, fdRow.fd_id)
+    const match = await fdFetch(apiKey, `${FD_BASE}/matches/${fdRow.fd_id}`)
     const goals = (match.goals ?? []).map(g => ({
       minute:      g.minute ?? null,
       scorer_id:   g.scorer?.id   ?? null,
@@ -603,10 +628,7 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
     }
     const { error } = await supabase.from('match_goals').upsert(row, { onConflict: 'match_id' })
     if (error) throw new Error(error.message)
-    const { data: allGoals } = await supabase.from('match_goals').select('*')
-    const goalsMap = {}
-    for (const g of allGoals ?? []) goalsMap[g.match_id] = { matchId: g.match_id, homeTeamId: g.home_team_id, awayTeamId: g.away_team_id, goals: g.goals ?? [] }
-    broadcast('match_goals', goalsMap)
+    await broadcastGoals()
     console.log(`[scheduler] Goals synced for ${matchId}: ${goals.length} goal(s)`)
     return goals.length
   }
@@ -618,15 +640,12 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
     syncGoals,
     getLiveScores:   () => liveScores,
     startLivePoller: () => { startLivePoller(); runLivePoll() },
-    status:      () => ({
-      requestsToday,
-      autoBudget:  AUTO_BUDGET,
-      dailyBudget: DAILY_BUDGET,
-      reserved:    MANUAL_RESERVE,
-      remaining:   AUTO_BUDGET - requestsToday,
+    status: () => ({
       lastSync,
       nextSync,
+      syncing,
       pollsPlanned: todayPlan.length,
+      liveMatches:  Object.keys(liveScores).length,
     }),
   }
 }

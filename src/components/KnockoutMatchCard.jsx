@@ -2,11 +2,12 @@ import { useRef } from 'react'
 import { Lock } from 'lucide-react'
 import { Badge } from './ui/badge'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select'
+import ScorerPicker from './ScorerPicker'
 import { getFlag } from '@/data/worldcup'
 import { calcMatchPoints } from '@/lib/scoring'
 import { cn, fmtKickoff } from '@/lib/utils'
 
-export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick = {}, result, onSave, disabled, kickoff = null }) {
+export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick = {}, result, onSave, disabled, kickoff = null, lineup, myScorerHome, myScorerAway, matchGoals, onSaveScorer }) {
   const homeRef = useRef(null)
   const awayRef = useRef(null)
   const timerRef = useRef(null)
@@ -109,11 +110,11 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
             ) : (
               <>
                 <input ref={homeRef} type="number" min="0" max="99"
-                  defaultValue={hasPick ? pick.home : ''} placeholder="0"
+                  defaultValue={hasPick ? pick.home : ''} placeholder="-"
                   className="score-input" onChange={queue} />
                 <span className="text-th-muted text-xs font-bold">–</span>
                 <input ref={awayRef} type="number" min="0" max="99"
-                  defaultValue={hasPick ? pick.away : ''} placeholder="0"
+                  defaultValue={hasPick ? pick.away : ''} placeholder="-"
                   className="score-input" onChange={queue} />
               </>
             )}
@@ -159,6 +160,38 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
             : isCor
               ? <span className="text-xs text-[#22c55e] font-semibold">✓ +{pts} pts</span>
               : <span className="text-xs text-th-muted">+0 pts</span>}
+        </div>
+      )}
+
+      {/* Scorer picks — shown when lineup is available */}
+      {lineup && (
+        <div className="mt-3 pt-3 border-t border-th-border/50">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-[10px] text-th-muted uppercase tracking-wide">{km.home} scorer</span>
+              <ScorerPicker
+                lineup={lineup.homeLineup}
+                bench={lineup.homeBench}
+                pick={myScorerHome}
+                locked={locked}
+                matchGoals={matchGoals}
+                teamId={lineup.homeTeamId}
+                onSave={(playerId, playerName) => onSaveScorer?.(matchId, 'home', playerId, playerName)}
+              />
+            </div>
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-[10px] text-th-muted uppercase tracking-wide">{km.away} scorer</span>
+              <ScorerPicker
+                lineup={lineup.awayLineup}
+                bench={lineup.awayBench}
+                pick={myScorerAway}
+                locked={locked}
+                matchGoals={matchGoals}
+                teamId={lineup.awayTeamId}
+                onSave={(playerId, playerName) => onSaveScorer?.(matchId, 'away', playerId, playerName)}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

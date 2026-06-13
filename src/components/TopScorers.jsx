@@ -1,26 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Target, RefreshCw } from 'lucide-react'
 import { getFlag } from '@/data/worldcup'
-import { cachedFetch } from '@/lib/apiCache'
 import { cn } from '@/lib/utils'
-
-const TEAM_NAME_MAP = {
-  'Korea Republic':               'South Korea',
-  "Côte d'Ivoire":                'Ivory Coast',
-  'Ivory Coast':                  'Ivory Coast',
-  'Türkiye':                      'Turkey',
-  'Bosnia-Herzegovina':           'Bosnia and Herzegovina',
-  'Cabo Verde':                   'Cape Verde',
-  'Congo DR':                     'DR Congo',
-  'Democratic Republic of Congo': 'DR Congo',
-  'USA':                          'United States',
-  'United States of America':     'United States',
-  'Czech Republic':               'Czech Republic',
-  'Czechia':                      'Czech Republic',
-  'IR Iran':                      'Iran',
-  'Curacao':                      'Curaçao',
-}
-const normalize = n => TEAM_NAME_MAP[n] ?? n
 
 const MEDALS = ['🥇', '🥈', '🥉']
 const LIMIT  = 10
@@ -34,11 +15,9 @@ export default function TopScorers() {
     setLoading(true)
     setError(null)
     try {
-      const json = await cachedFetch(
-        'scorers-2026',
-        `/api/football-data/competitions/WC/scorers?season=2026&limit=${LIMIT}`,
-        30 * 60 * 1000,
-      )
+      const res  = await fetch(`/api/scorers?limit=${LIMIT}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Failed to load scorers')
       setScorers(json.scorers ?? [])
     } catch (e) {
       setError(e.message)
@@ -82,7 +61,7 @@ export default function TopScorers() {
   return (
     <div className="space-y-1.5">
       {scorers.map((s, i) => {
-        const team     = normalize(s.team?.name ?? '')
+        const team     = s.team?.name ?? ''
         const flag     = getFlag(team)
         const goals    = s.goals ?? 0
         const assists  = s.assists ?? 0
