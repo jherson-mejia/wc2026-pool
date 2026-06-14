@@ -111,9 +111,14 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
     broadcast('match_goals', goalsMap)
   }
 
-  // ── Lineup fetch (T-55min) ────────────────────────────────────
-  async function runLineupFetch(poolMatchId, fdMatchId) {
-    console.log(`[scheduler] Lineup fetch for ${poolMatchId} (FD: ${fdMatchId})`)
+  // ── Lineup fetch with backoff retries ────────────────────────
+  // Offsets = minutes before kickoff to attempt. First call uses all offsets;
+  // on each empty response the next offset is scheduled automatically.
+  const LINEUP_OFFSETS = [55, 50, 45, 40, 35, 30, 25, 20, 15, 10]
+
+  async function runLineupFetch(poolMatchId, fdMatchId, kickoffMs = null, offsets = []) {
+    const attemptsLeft = offsets.length
+    console.log(`[scheduler] Lineup fetch for ${poolMatchId} (FD: ${fdMatchId})${attemptsLeft > 1 ? ` — ${attemptsLeft} attempt(s) remaining` : ''}`)
     try {
       const match = await fdFetch(apiKey, `${FD_BASE}/matches/${fdMatchId}`)
 
@@ -121,20 +126,11 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
         id: p.id, name: p.name, position: p.position ?? null, shirtNumber: p.shirtNumber ?? null,
       }))
 
-      const row = {
-        match_id:     poolMatchId,
-        home_team_id: match.homeTeam?.id ?? null,
-        away_team_id: match.awayTeam?.id ?? null,
-        home_lineup:  toPlayers(match.homeTeam?.lineup),
-        home_bench:   toPlayers(match.homeTeam?.bench),
-        away_lineup:  toPlayers(match.awayTeam?.lineup),
-        away_bench:   toPlayers(match.awayTeam?.bench),
-        fetched_at:   Date.now(),
-      }
+      const homeLineup = toPlayers(match.homeTeam?.lineup)
+      const awayLineup = toPlayers(match.awayTeam?.lineup)
+      const hasLineup  = homeLineup.length > 0 || awayLineup.length > 0
 
-      const { error } = await supabase.from('lineups').upsert(row, { onConflict: 'match_id' })
-      if (error) throw new Error(error.message)
-
+      // Always save meta (venue/referee/odds available before lineup)
       const referee = match.referees?.find(r => r.type === 'REFEREE')?.name ?? null
       await supabase.from('match_meta').upsert({
         match_id:  poolMatchId,
@@ -145,6 +141,37 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
         odds_away: match.odds?.awayWin ?? null,
         ts: Date.now(),
       }, { onConflict: 'match_id' })
+
+      if (!hasLineup) {
+        const nextOffsets = offsets.slice(1)
+        if (kickoffMs && nextOffsets.length > 0) {
+          const nextMs = kickoffMs - nextOffsets[0] * 60_000
+          const delay  = nextMs - Date.now()
+          if (delay > 0) {
+            console.log(`[scheduler] No lineup yet for ${poolMatchId} — retry at T-${nextOffsets[0]}min`)
+            timers.push(setTimeout(() => runLineupFetch(poolMatchId, fdMatchId, kickoffMs, nextOffsets), delay))
+          } else {
+            console.warn(`[scheduler] T-${nextOffsets[0]}min window already passed for ${poolMatchId} — skipping`)
+          }
+        } else {
+          console.warn(`[scheduler] No lineup for ${poolMatchId} after all attempts`)
+        }
+        return
+      }
+
+      const row = {
+        match_id:     poolMatchId,
+        home_team_id: match.homeTeam?.id ?? null,
+        away_team_id: match.awayTeam?.id ?? null,
+        home_lineup:  homeLineup,
+        home_bench:   toPlayers(match.homeTeam?.bench),
+        away_lineup:  awayLineup,
+        away_bench:   toPlayers(match.awayTeam?.bench),
+        fetched_at:   Date.now(),
+      }
+
+      const { error } = await supabase.from('lineups').upsert(row, { onConflict: 'match_id' })
+      if (error) throw new Error(error.message)
 
       const [{ data: allLineups }, { data: allMeta }] = await Promise.all([
         supabase.from('lineups').select('*'),
@@ -405,8 +432,13 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
 
       console.log(`[scheduler] Sync done — ${payloads.toUpsert.length} result(s), ${liveCount} live`)
     } catch (err) {
-      if (err.message === 'rate-limited') console.warn('[scheduler] Rate-limited — will retry next slot')
-      else console.error('[scheduler] Sync error:', err.message)
+      if (err.message === 'rate-limited') {
+        console.warn('[scheduler] Rate-limited — retrying in 65s')
+        setTimeout(() => runSync(`${reason}-retry`), 65_000)
+      } else {
+        console.error('[scheduler] Sync error:', err.message, '— retrying in 30s')
+        setTimeout(() => runSync(`${reason}-retry`), 30_000)
+      }
     } finally {
       syncing = false
     }
@@ -538,14 +570,18 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
 
     console.log(`[scheduler] Day plan: ${todayMs.length} match(es) today`)
 
-    // Schedule lineup fetches at T-55min for matches with a known FD match ID
+    // Schedule lineup fetches starting at T-55min, with retries at T-45/T-35/T-20 if empty
     for (const { matchId, kickoffMs } of todayMs) {
       const fdId = fdMap[matchId]
       if (!fdId) continue
-      const fetchAt = kickoffMs - 55 * 60_000
-      if (fetchAt > now.getTime()) {
-        timers.push(setTimeout(() => runLineupFetch(matchId, fdId), fetchAt - Date.now()))
-      }
+      // Find the earliest offset still in the future
+      const remainingOffsets = LINEUP_OFFSETS.filter(o => kickoffMs - o * 60_000 > now.getTime())
+      if (remainingOffsets.length === 0) continue
+      const firstFetchAt = kickoffMs - remainingOffsets[0] * 60_000
+      timers.push(setTimeout(
+        () => runLineupFetch(matchId, fdId, kickoffMs, remainingOffsets),
+        firstFetchAt - Date.now(),
+      ))
     }
 
     // One runSync per match at kickoff time — 30s poller takes over from there
