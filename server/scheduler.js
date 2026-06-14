@@ -114,11 +114,8 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
   // ── Lineup fetch with backoff retries ────────────────────────
   // Offsets = minutes before kickoff to attempt. First call uses all offsets;
   // on each empty response the next offset is scheduled automatically.
-  const LINEUP_OFFSETS = [55, 50, 45, 40, 35, 30, 25, 20, 15, 10]
-
-  async function runLineupFetch(poolMatchId, fdMatchId, kickoffMs = null, offsets = []) {
-    const attemptsLeft = offsets.length
-    console.log(`[scheduler] Lineup fetch for ${poolMatchId} (FD: ${fdMatchId})${attemptsLeft > 1 ? ` — ${attemptsLeft} attempt(s) remaining` : ''}`)
+  async function runLineupFetch(poolMatchId, fdMatchId, kickoffMs = null) {
+    console.log(`[scheduler] Lineup fetch for ${poolMatchId} (FD: ${fdMatchId})`)
     try {
       const match = await fdFetch(apiKey, `${FD_BASE}/matches/${fdMatchId}`)
 
@@ -143,18 +140,11 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
       }, { onConflict: 'match_id' })
 
       if (!hasLineup) {
-        const nextOffsets = offsets.slice(1)
-        if (kickoffMs && nextOffsets.length > 0) {
-          const nextMs = kickoffMs - nextOffsets[0] * 60_000
-          const delay  = nextMs - Date.now()
-          if (delay > 0) {
-            console.log(`[scheduler] No lineup yet for ${poolMatchId} — retry at T-${nextOffsets[0]}min`)
-            timers.push(setTimeout(() => runLineupFetch(poolMatchId, fdMatchId, kickoffMs, nextOffsets), delay))
-          } else {
-            console.warn(`[scheduler] T-${nextOffsets[0]}min window already passed for ${poolMatchId} — skipping`)
-          }
+        if (kickoffMs && Date.now() < kickoffMs) {
+          console.log(`[scheduler] No lineup yet for ${poolMatchId} — retry in 30s`)
+          timers.push(setTimeout(() => runLineupFetch(poolMatchId, fdMatchId, kickoffMs), 30_000))
         } else {
-          console.warn(`[scheduler] No lineup for ${poolMatchId} after all attempts`)
+          console.warn(`[scheduler] No lineup for ${poolMatchId} — kickoff reached, giving up`)
         }
         return
       }
@@ -570,18 +560,16 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
 
     console.log(`[scheduler] Day plan: ${todayMs.length} match(es) today`)
 
-    // Schedule lineup fetches starting at T-55min, with retries at T-45/T-35/T-20 if empty
+    // Schedule lineup poll starting at T-55min — retries every 30s until lineup found or kickoff
     for (const { matchId, kickoffMs } of todayMs) {
       const fdId = fdMap[matchId]
       if (!fdId) continue
-      // Find the earliest offset still in the future
-      const remainingOffsets = LINEUP_OFFSETS.filter(o => kickoffMs - o * 60_000 > now.getTime())
-      if (remainingOffsets.length === 0) continue
-      const firstFetchAt = kickoffMs - remainingOffsets[0] * 60_000
-      timers.push(setTimeout(
-        () => runLineupFetch(matchId, fdId, kickoffMs, remainingOffsets),
-        firstFetchAt - Date.now(),
-      ))
+      const firstFetchAt = kickoffMs - 55 * 60_000
+      const delay = Math.max(0, firstFetchAt - Date.now())
+      // If already past T-55 but before kickoff, start immediately
+      if (Date.now() < kickoffMs) {
+        timers.push(setTimeout(() => runLineupFetch(matchId, fdId, kickoffMs), delay))
+      }
     }
 
     // One runSync per match at kickoff time — 30s poller takes over from there
