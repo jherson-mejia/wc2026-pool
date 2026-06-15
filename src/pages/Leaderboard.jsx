@@ -104,11 +104,11 @@ function TriviaLeaderboard() {
 
   const now = Date.now()
 
-  // Current active prompt: latest question where now is within its 12h window
-  const activeQuestion = useMemo(() =>
+  // All active prompts within their 12h window, newest first
+  const activeQuestions = useMemo(() =>
     questions
       .filter(q => q.availableAt <= now && now < q.availableAt + TWELVE_HOURS)
-      .sort((a, b) => b.availableAt - a.availableAt)[0] ?? null
+      .sort((a, b) => b.availableAt - a.availableAt)
   , [questions, now])
 
   // Next future prompt (not yet active)
@@ -116,15 +116,18 @@ function TriviaLeaderboard() {
     questions.filter(q => q.availableAt > now).sort((a, b) => a.availableAt - b.availableAt)[0] ?? null
   , [questions, now])
 
-  const myAnswer = useMemo(() =>
-    activeQuestion
-      ? answers.find(a => a.userId === user?.userId && a.promptId === activeQuestion.promptId)
-      : null
-  , [activeQuestion, answers, user])
+  const myActiveAnswers = useMemo(() =>
+    activeQuestions.map(q => answers.find(a => a.userId === user?.userId && a.promptId === q.promptId) ?? null)
+  , [activeQuestions, answers, user])
 
-  const expiresAt = activeQuestion ? activeQuestion.availableAt + TWELVE_HOURS : null
-  const countdown = useCountdown(myAnswer ? expiresAt : null)
-  const nextCountdown = useCountdown(!activeQuestion && nextQuestion ? nextQuestion.availableAt : null)
+  const hasUnanswered = myActiveAnswers.some(a => a === null)
+  const answeredCount = myActiveAnswers.filter(Boolean).length
+  const allAnswered = activeQuestions.length > 0 && !hasUnanswered
+  const correctCount = myActiveAnswers.filter(a => a?.isCorrect).length
+
+  const expiresAt = allAnswered && activeQuestions.length > 0 ? activeQuestions[0].availableAt + TWELVE_HOURS : null
+  const countdown = useCountdown(allAnswered ? expiresAt : null)
+  const nextCountdown = useCountdown(activeQuestions.length === 0 && nextQuestion ? nextQuestion.availableAt : null)
 
   const [showAllTrivia, setShowAllTrivia] = useState(false)
   const visibleTrivia  = showAllTrivia ? leaderboard : leaderboard.slice(0, 10)
@@ -148,35 +151,40 @@ function TriviaLeaderboard() {
 
       {/* ── CTA block ── */}
       <div className="px-4 py-3 border-b border-[#FFD706]/10">
-        {!activeQuestion && !nextQuestion && (
+        {activeQuestions.length === 0 && !nextQuestion && (
           <div className="flex items-center gap-2 text-[11px] text-th-muted">
             <Clock className="h-3.5 w-3.5 shrink-0" />
             <span>Next question coming soon</span>
           </div>
         )}
 
-        {!activeQuestion && nextQuestion && (
+        {activeQuestions.length === 0 && nextQuestion && (
           <div className="flex items-center gap-2 text-[11px] text-th-muted">
             <Clock className="h-3.5 w-3.5 text-[#FFD706] shrink-0" />
             <span>Next question in <span className="font-bold text-th-text">{nextCountdown ?? '…'}</span></span>
           </div>
         )}
 
-        {activeQuestion && !myAnswer && (
-          <button
-            id="trivia-cta"
-            className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#FFD706] hover:bg-[#FFD706]/90 active:scale-95 transition-all px-4 py-2.5"
-          >
-            <Play className="h-3.5 w-3.5 text-black fill-black shrink-0" />
-            <span className="text-sm font-extrabold text-black tracking-tight">Answer Today's Question</span>
-          </button>
+        {activeQuestions.length > 0 && hasUnanswered && (
+          <div className="space-y-1.5">
+            <button
+              id="trivia-cta"
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#FFD706] hover:bg-[#FFD706]/90 active:scale-95 transition-all px-4 py-2.5"
+            >
+              <Play className="h-3.5 w-3.5 text-black fill-black shrink-0" />
+              <span className="text-sm font-extrabold text-black tracking-tight">Answer Today's Question</span>
+            </button>
+            {answeredCount > 0 && (
+              <p className="text-[11px] text-th-muted text-center">{answeredCount} of {activeQuestions.length} answered</p>
+            )}
+          </div>
         )}
 
-        {activeQuestion && myAnswer?.isCorrect && (
+        {allAnswered && correctCount === activeQuestions.length && (
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-              <span className="text-sm font-bold text-emerald-400">Nailed it! +1 point</span>
+              <span className="text-sm font-bold text-emerald-400">Nailed it! +{correctCount} point{correctCount > 1 ? 's' : ''}</span>
             </div>
             {countdown && (
               <div className="flex items-center gap-1.5 text-[11px] text-th-muted">
@@ -187,11 +195,15 @@ function TriviaLeaderboard() {
           </div>
         )}
 
-        {activeQuestion && myAnswer && !myAnswer.isCorrect && (
+        {allAnswered && correctCount < activeQuestions.length && (
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <XCircle className="h-4 w-4 text-red-400 shrink-0" />
-              <span className="text-sm font-bold text-th-text">Keep trying!</span>
+              {correctCount > 0
+                ? <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                : <XCircle className="h-4 w-4 text-red-400 shrink-0" />}
+              <span className="text-sm font-bold text-th-text">
+                {correctCount > 0 ? `${correctCount}/${activeQuestions.length} correct!` : 'Keep trying!'}
+              </span>
             </div>
             <p className="text-[11px] text-th-muted">Better luck on the next one.</p>
             {countdown && (
