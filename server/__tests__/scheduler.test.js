@@ -47,6 +47,13 @@ const tick = async () => {
   for (let i = 0; i < 20; i++) await Promise.resolve()
 }
 
+async function waitForIdle(s, max = 50) {
+  for (let i = 0; i < max; i++) {
+    if (!s.status().syncing) return
+    await Promise.resolve()
+  }
+}
+
 function mockFetchOk(matches = []) {
   global.fetch = vi.fn().mockResolvedValue({
     ok: true, status: 200,
@@ -296,6 +303,7 @@ describe('runSync', () => {
     const broadcast = vi.fn()
     const s = startScheduler({ supabase: makeMockSupabase(), broadcast, apiKey: 'key' })
     await tick()
+    await waitForIdle(s)
     broadcast.mockClear()
     await s.forceSync()
     expect(broadcast).not.toHaveBeenCalledWith('results', expect.anything())
@@ -306,6 +314,7 @@ describe('runSync', () => {
     const broadcast = vi.fn()
     const s = startScheduler({ supabase: makeMockSupabase(), broadcast, apiKey: 'key' })
     await tick()
+    await waitForIdle(s)
     broadcast.mockClear()
     await s.forceSync()
     expect(broadcast).toHaveBeenCalledWith('results', expect.any(Object))
@@ -316,6 +325,7 @@ describe('runSync', () => {
     const broadcast = vi.fn()
     const s = startScheduler({ supabase: makeMockSupabase(), broadcast, apiKey: 'key' })
     await tick()
+    await waitForIdle(s)
     broadcast.mockClear()
     await s.forceSync()
     expect(broadcast).not.toHaveBeenCalledWith('results', expect.anything())
@@ -453,6 +463,7 @@ describe('runSync — live scores', () => {
 
     const s = startScheduler({ supabase, broadcast, apiKey: 'key' })
     await tick()
+    await waitForIdle(s)
     broadcast.mockClear()
     await s.forceSync()
 
@@ -476,11 +487,45 @@ describe('runSync — live scores', () => {
     const broadcast = vi.fn()
     const s = startScheduler({ supabase: makeMockSupabase(), broadcast, apiKey: 'key' })
     await tick()
+    await waitForIdle(s)
     broadcast.mockClear()
     await s.forceSync()
 
     expect(broadcast).not.toHaveBeenCalledWith('live_scores', expect.objectContaining({ GA_1: expect.anything() }))
     expect(s.status().liveMatches).toBe(0)
+  })
+
+  it('promotes live scores to results when poller ends with API lag', async () => {
+    mockFetchOk([])
+    const broadcast = vi.fn()
+    const supabase  = makeMockSupabase({
+      live_scores: [{
+        match_id:    'GA_1',
+        home:        'Mexico',
+        away:        'South Africa',
+        home_score:  2,
+        away_score:  0,
+        status:      'IN_PLAY',
+        minute:      90,
+        injury_time: null,
+        goals:       [],
+        updated_at:  Date.now(),
+      }],
+      results: [],
+    })
+
+    const s = startScheduler({ supabase, broadcast, apiKey: 'key' })
+    await tick()
+    await waitForIdle(s)
+
+    vi.advanceTimersByTime(30_000)
+    for (let i = 0; i < 40; i++) await Promise.resolve()
+    await waitForIdle(s)
+
+    const resultUpserts = (supabase._upserts.results ?? []).flat()
+    expect(resultUpserts.some(r => r.match_id === 'GA_1' && r.home === 2 && r.away === 0)).toBe(true)
+    expect(broadcast).toHaveBeenCalledWith('results', expect.any(Object))
+    expect(s.getLiveScores()['GA_1']).toBeUndefined()
   })
 })
 
