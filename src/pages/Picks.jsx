@@ -153,7 +153,7 @@ function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, ho
       {/* Scorer picks — shown when lineup or squad roster is available */}
       {showScorers && (
         <div className="mt-2 pt-2 border-t border-th-border/50 space-y-2">
-          {hasLineup && (matchMeta?.venue || matchMeta?.referee) && (
+          {(hasHomeLineup || hasAwayLineup) && (matchMeta?.venue || matchMeta?.referee) && (
             <div className="flex items-center justify-between text-[10px] text-th-muted">
               {matchMeta.venue   && <span>🏟 {matchMeta.venue}</span>}
               {matchMeta.referee && <span>Ref: {matchMeta.referee}</span>}
