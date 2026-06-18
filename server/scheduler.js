@@ -274,8 +274,19 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
         id: p.id, name: p.name, position: p.position ?? null, shirtNumber: p.shirtNumber ?? null,
       }))
 
-      const homeLineup = toPlayers(match.homeTeam?.lineup)
-      const awayLineup = toPlayers(match.awayTeam?.lineup)
+      // Determine pool home team to detect when FD's home/away is reversed
+      const fdHomeName = normalize(match.homeTeam?.name ?? '')
+      let poolHome = GROUP_MATCHES.find(g => g.id === poolMatchId)?.home ?? null
+      if (!poolHome) {
+        const { data: km } = await supabase.from('ko_matches').select('home').eq('id', poolMatchId).single()
+        poolHome = km?.home ?? null
+      }
+      const swapped = poolHome != null && fdHomeName !== poolHome
+      const poolHomeTeam = swapped ? match.awayTeam : match.homeTeam
+      const poolAwayTeam = swapped ? match.homeTeam : match.awayTeam
+
+      const homeLineup = toPlayers(poolHomeTeam?.lineup)
+      const awayLineup = toPlayers(poolAwayTeam?.lineup)
       const hasLineup  = homeLineup.length > 0 || awayLineup.length > 0
 
       // Always save meta (venue/referee/odds available before lineup)
@@ -302,12 +313,12 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
 
       const row = {
         match_id:     poolMatchId,
-        home_team_id: match.homeTeam?.id ?? null,
-        away_team_id: match.awayTeam?.id ?? null,
+        home_team_id: poolHomeTeam?.id ?? null,
+        away_team_id: poolAwayTeam?.id ?? null,
         home_lineup:  homeLineup,
-        home_bench:   toPlayers(match.homeTeam?.bench),
+        home_bench:   toPlayers(poolHomeTeam?.bench),
         away_lineup:  awayLineup,
-        away_bench:   toPlayers(match.awayTeam?.bench),
+        away_bench:   toPlayers(poolAwayTeam?.bench),
         fetched_at:   Date.now(),
       }
 
