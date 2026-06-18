@@ -40,7 +40,7 @@ function TickingCountdown({ kickoff }) {
 
 // ── Scorer picker for one team ────────────────────────────────
 // ── Compact pick row (schedule-tab style with inline score input) ─
-function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, myScorerHome, myScorerAway, matchGoals, matchMeta, onSaveScorer }) {
+function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, homeRoster, awayRoster, myScorerHome, myScorerAway, matchGoals, matchMeta, onSaveScorer }) {
   const homeRef  = useRef(null)
   const awayRef  = useRef(null)
   const timerRef = useRef(null)
@@ -79,7 +79,11 @@ function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, my
     ? new Date(kickoff).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
     : '–'
 
-  const hasLineup = lineup != null
+  const hasHomeLineup = !!(lineup?.homeLineup?.length || lineup?.homeBench?.length)
+  const hasAwayLineup = !!(lineup?.awayLineup?.length || lineup?.awayBench?.length)
+  const showScorers   = hasHomeLineup || hasAwayLineup
+    || !!homeRoster?.players?.length || !!awayRoster?.players?.length
+    || (locked && !!(myScorerHome || myScorerAway))
 
   return (
     <div className={cn('rounded-xl border px-3 py-2.5 transition-all', borderCls)}>
@@ -146,38 +150,42 @@ function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, my
         </div>
       )}
 
-      {/* Scorer picks — shown when lineup is available */}
-      {hasLineup && (
+      {/* Scorer picks — shown when lineup or squad roster is available */}
+      {showScorers && (
         <div className="mt-2 pt-2 border-t border-th-border/50 space-y-2">
-          {/* Venue + referee */}
-          {(matchMeta?.venue || matchMeta?.referee) && (
+          {hasLineup && (matchMeta?.venue || matchMeta?.referee) && (
             <div className="flex items-center justify-between text-[10px] text-th-muted">
               {matchMeta.venue   && <span>🏟 {matchMeta.venue}</span>}
               {matchMeta.referee && <span>Ref: {matchMeta.referee}</span>}
             </div>
           )}
+          {!hasHomeLineup && !hasAwayLineup && (
+            <p className="text-[10px] text-th-muted text-center">Full squad — official lineup updates ~1h before kickoff</p>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col gap-1 min-w-0">
               <span className="text-[10px] text-th-muted uppercase tracking-wide">{match.home} scorer</span>
               <ScorerPicker
-                lineup={lineup.homeLineup}
-                bench={lineup.homeBench}
+                lineup={lineup?.homeLineup}
+                bench={lineup?.homeBench}
+                roster={!hasHomeLineup ? homeRoster?.players : undefined}
                 pick={myScorerHome}
                 locked={locked}
                 matchGoals={matchGoals}
-                teamId={lineup.homeTeamId}
+                teamId={hasHomeLineup ? lineup.homeTeamId : homeRoster?.fdTeamId}
                 onSave={(playerId, playerName) => onSaveScorer?.(match.id, 'home', playerId, playerName)}
               />
             </div>
             <div className="flex flex-col gap-1 min-w-0">
               <span className="text-[10px] text-th-muted uppercase tracking-wide">{match.away} scorer</span>
               <ScorerPicker
-                lineup={lineup.awayLineup}
-                bench={lineup.awayBench}
+                lineup={lineup?.awayLineup}
+                bench={lineup?.awayBench}
+                roster={!hasAwayLineup ? awayRoster?.players : undefined}
                 pick={myScorerAway}
                 locked={locked}
                 matchGoals={matchGoals}
-                teamId={lineup.awayTeamId}
+                teamId={hasAwayLineup ? lineup.awayTeamId : awayRoster?.fdTeamId}
                 onSave={(playerId, playerName) => onSaveScorer?.(match.id, 'away', playerId, playerName)}
               />
             </div>
@@ -189,7 +197,7 @@ function PickRow({ match, pick = {}, result, kickoff, onSave, isNext, lineup, my
 }
 
 // ── Single match-day section ──────────────────────────────────
-function DaySection({ label, sublabel, isToday, allPast, hasNext, matches, myPicks, results, kickoffs, onSave, nextMatchId, lineups, myScorer, matchGoals, matchMeta, onSaveScorer }) {
+function DaySection({ label, sublabel, isToday, allPast, hasNext, matches, myPicks, results, kickoffs, onSave, nextMatchId, lineups, myScorer, matchGoals, matchMeta, onSaveScorer, teamRosters }) {
   const [open, setOpen] = useState(isToday || hasNext)
 
   // Only show: picked matches OR upcoming (not yet locked) matches
@@ -257,6 +265,8 @@ function DaySection({ label, sublabel, isToday, allPast, hasNext, matches, myPic
                 onSave={onSave}
                 isNext={m.id === nextMatchId}
                 lineup={lineups?.[m.id]}
+                homeRoster={teamRosters?.[m.home]}
+                awayRoster={teamRosters?.[m.away]}
                 myScorerHome={myScorer?.[`${m.id}_home`]}
                 myScorerAway={myScorer?.[`${m.id}_away`]}
                 matchGoals={matchGoals?.[m.id]}
@@ -276,7 +286,7 @@ const DEV_MATCH = import.meta.env.DEV
   ? { id: 'DEV_TEST', group: 'DEV', home: 'Home XI', away: 'Away XI', matchday: 1, round: 'group', simultaneous: false }
   : null
 
-function MatchDayView({ myPicks, results, kickoffs, onSave, lineups, myScorer, matchGoals, matchMeta, onSaveScorer }) {
+function MatchDayView({ myPicks, results, kickoffs, onSave, lineups, myScorer, matchGoals, matchMeta, onSaveScorer, teamRosters }) {
   const sorted = useMemo(() => {
     const base = DEV_MATCH ? [DEV_MATCH, ...GROUP_MATCHES] : [...GROUP_MATCHES]
     return base.sort((a, b) => {
@@ -345,6 +355,7 @@ function MatchDayView({ myPicks, results, kickoffs, onSave, lineups, myScorer, m
           matchGoals={matchGoals}
           matchMeta={matchMeta}
           onSaveScorer={onSaveScorer}
+          teamRosters={teamRosters}
         />
       ))}
     </div>
@@ -352,7 +363,7 @@ function MatchDayView({ myPicks, results, kickoffs, onSave, lineups, myScorer, m
 }
 
 // ── Knockout round ─────────────────────────────────────────────
-function KORound({ round, myPicks, results, koMatches, kickoffs, onSave, isAdmin, lineups, myScorer, matchGoals, onSaveScorer }) {
+function KORound({ round, myPicks, results, koMatches, kickoffs, onSave, isAdmin, lineups, myScorer, matchGoals, onSaveScorer, teamRosters }) {
   const allTBD = Array.from({ length: round.count }, (_, i) => `${round.id}_${i + 1}`)
     .every(mid => !koMatches[mid]?.home)
 
@@ -388,6 +399,8 @@ function KORound({ round, myPicks, results, koMatches, kickoffs, onSave, isAdmin
             onSave={onSave}
             disabled={isAdmin}
             lineup={lineups?.[mid]}
+            homeRoster={teamRosters?.[koMatches[mid]?.home]}
+            awayRoster={teamRosters?.[koMatches[mid]?.away]}
             myScorerHome={myScorer?.[`${mid}_home`]}
             myScorerAway={myScorer?.[`${mid}_away`]}
             matchGoals={matchGoals?.[mid]}
@@ -494,7 +507,7 @@ function PicksProgress({ myPicks, results, participants, allPicks, user, allScor
 
 // ── Main Picks page ────────────────────────────────────────────
 export default function Picks() {
-  const { myPicks, results, liveScores, koMatches, kickoffs, user, isAdmin, savePick, participants, allPicks, lineups, myScorer, allScorer, matchGoals, matchMeta, saveScorerPick } = useApp()
+  const { myPicks, results, liveScores, koMatches, kickoffs, user, isAdmin, savePick, participants, allPicks, lineups, myScorer, allScorer, matchGoals, matchMeta, saveScorerPick, teamRosters } = useApp()
 
   const effectiveResults = useMemo(() => {
     const safeResults = results ?? {}
@@ -600,6 +613,7 @@ export default function Picks() {
             matchGoals={matchGoals}
             matchMeta={matchMeta}
             onSaveScorer={handleSaveScorer}
+            teamRosters={teamRosters}
           />
         </TabsContent>
 
@@ -617,6 +631,7 @@ export default function Picks() {
               myScorer={myScorer}
               matchGoals={matchGoals}
               onSaveScorer={handleSaveScorer}
+              teamRosters={teamRosters}
             />
           </TabsContent>
         ))}

@@ -11,6 +11,7 @@ import scorerPicksRouter from './scorer-picks.js'
 import scorersRouter from './scorers.js'
 import triviaRouter from './trivia.js'
 import proxyRouter from './proxy.js'
+import rostersRouter from './rosters.js'
 
 export { makeSchedulerAdminRouter } from './scheduler-admin.js'
 
@@ -28,4 +29,5 @@ export default [
   { path: '/api/scorers', router: scorersRouter },
   { path: '/api/trivia', router: triviaRouter },
   { path: '/api/football-data', router: proxyRouter },
+  { path: '/api/rosters', router: rostersRouter },
 ]

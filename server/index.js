@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { startScheduler } from './scheduler.js'
 import { supabase } from './db.js'
 import { broadcast, sseHandler } from './sse.js'
+import { syncRosters } from './rosters.js'
 import controllers, { makeSchedulerAdminRouter } from './controllers/index.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -54,6 +55,18 @@ server.once('listening', () => {
   scheduler = startScheduler({ supabase, broadcast, apiKey: process.env.FD_API_KEY })
   if (scheduler) {
     scheduler.syncSchedule().catch(err => console.error('[server] Startup schedule sync failed:', err.message))
+  }
+  if (process.env.FD_API_KEY) {
+    supabase.from('team_rosters').select('team_name', { count: 'exact', head: true })
+      .then(({ count }) => {
+        if (count === 0) {
+          console.log('[server] team_rosters empty — running initial roster sync')
+          syncRosters({ supabase, apiKey: process.env.FD_API_KEY, broadcastFn: broadcast })
+            .then(r => console.log(`[server] Initial roster sync: ${r.synced} synced, ${r.skipped} skipped`))
+            .catch(err => console.error('[server] Initial roster sync failed:', err.message))
+        }
+      })
+      .catch(err => console.error('[server] Roster count check failed:', err.message))
   }
 })
 

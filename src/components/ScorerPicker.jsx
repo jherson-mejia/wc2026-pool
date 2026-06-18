@@ -1,8 +1,10 @@
 import { cn } from '@/lib/utils'
 import { SCORER_POINTS } from '@/lib/scoring'
 
-export default function ScorerPicker({ lineup, bench, pick, locked, matchGoals, teamId, onSave }) {
-  const players = [...(lineup ?? []), ...(bench ?? [])]
+export default function ScorerPicker({ lineup, bench, roster, pick, locked, matchGoals, teamId, onSave }) {
+  const hasLineup = !!(lineup?.length || bench?.length)
+  const players   = hasLineup ? [...(lineup ?? []), ...(bench ?? [])] : (roster ?? [])
+
   if (!players.length) return null
 
   if (locked) {
@@ -34,16 +36,26 @@ export default function ScorerPicker({ lineup, bench, pick, locked, matchGoals, 
       }}
     >
       <option value="">⚽ Pick scorer…</option>
-      {lineup?.length > 0 && (
-        <optgroup label="Starting XI">
-          {lineup.map(p => (
-            <option key={p.id} value={p.id}>{p.name}{p.position ? ` · ${p.position}` : ''}</option>
-          ))}
-        </optgroup>
-      )}
-      {bench?.length > 0 && (
-        <optgroup label="Bench">
-          {bench.map(p => (
+      {hasLineup ? (
+        <>
+          {lineup?.length > 0 && (
+            <optgroup label="Starting XI">
+              {lineup.map(p => (
+                <option key={p.id} value={p.id}>{p.name}{p.position ? ` · ${p.position}` : ''}</option>
+              ))}
+            </optgroup>
+          )}
+          {bench?.length > 0 && (
+            <optgroup label="Bench">
+              {bench.map(p => (
+                <option key={p.id} value={p.id}>{p.name}{p.position ? ` · ${p.position}` : ''}</option>
+              ))}
+            </optgroup>
+          )}
+        </>
+      ) : (
+        <optgroup label="Squad">
+          {players.map(p => (
             <option key={p.id} value={p.id}>{p.name}{p.position ? ` · ${p.position}` : ''}</option>
           ))}
         </optgroup>

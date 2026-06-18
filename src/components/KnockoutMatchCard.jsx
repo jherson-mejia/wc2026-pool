@@ -7,7 +7,7 @@ import { getFlag } from '@/data/worldcup'
 import { calcMatchPoints } from '@/lib/scoring'
 import { cn, fmtKickoff } from '@/lib/utils'
 
-export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick = {}, result, onSave, disabled, kickoff = null, lineup, myScorerHome, myScorerAway, matchGoals, onSaveScorer }) {
+export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick = {}, result, onSave, disabled, kickoff = null, lineup, homeRoster, awayRoster, myScorerHome, myScorerAway, matchGoals, onSaveScorer }) {
   const homeRef = useRef(null)
   const awayRef = useRef(null)
   const timerRef = useRef(null)
@@ -163,37 +163,48 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
         </div>
       )}
 
-      {/* Scorer picks — shown when lineup is available */}
-      {lineup && (
-        <div className="mt-3 pt-3 border-t border-th-border/50">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="flex flex-col gap-1 min-w-0">
-              <span className="text-[10px] text-th-muted uppercase tracking-wide">{km.home} scorer</span>
-              <ScorerPicker
-                lineup={lineup.homeLineup}
-                bench={lineup.homeBench}
-                pick={myScorerHome}
-                locked={locked}
-                matchGoals={matchGoals}
-                teamId={lineup.homeTeamId}
-                onSave={(playerId, playerName) => onSaveScorer?.(matchId, 'home', playerId, playerName)}
-              />
-            </div>
-            <div className="flex flex-col gap-1 min-w-0">
-              <span className="text-[10px] text-th-muted uppercase tracking-wide">{km.away} scorer</span>
-              <ScorerPicker
-                lineup={lineup.awayLineup}
-                bench={lineup.awayBench}
-                pick={myScorerAway}
-                locked={locked}
-                matchGoals={matchGoals}
-                teamId={lineup.awayTeamId}
-                onSave={(playerId, playerName) => onSaveScorer?.(matchId, 'away', playerId, playerName)}
-              />
+      {/* Scorer picks — shown when lineup, roster, or a locked pick exists */}
+      {(() => {
+        const hasHL = !!(lineup?.homeLineup?.length || lineup?.homeBench?.length)
+        const hasAL = !!(lineup?.awayLineup?.length || lineup?.awayBench?.length)
+        if (!hasHL && !hasAL && !homeRoster?.players?.length && !awayRoster?.players?.length
+          && !(locked && (myScorerHome || myScorerAway))) return null
+        return (
+          <div className="mt-3 pt-3 border-t border-th-border/50 space-y-2">
+            {!hasHL && !hasAL && (
+              <p className="text-[10px] text-th-muted text-center">Full squad — official lineup updates ~1h before kickoff</p>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1 min-w-0">
+                <span className="text-[10px] text-th-muted uppercase tracking-wide">{km.home} scorer</span>
+                <ScorerPicker
+                  lineup={lineup?.homeLineup}
+                  bench={lineup?.homeBench}
+                  roster={!hasHL ? homeRoster?.players : undefined}
+                  pick={myScorerHome}
+                  locked={locked}
+                  matchGoals={matchGoals}
+                  teamId={hasHL ? lineup.homeTeamId : homeRoster?.fdTeamId}
+                  onSave={(playerId, playerName) => onSaveScorer?.(matchId, 'home', playerId, playerName)}
+                />
+              </div>
+              <div className="flex flex-col gap-1 min-w-0">
+                <span className="text-[10px] text-th-muted uppercase tracking-wide">{km.away} scorer</span>
+                <ScorerPicker
+                  lineup={lineup?.awayLineup}
+                  bench={lineup?.awayBench}
+                  roster={!hasAL ? awayRoster?.players : undefined}
+                  pick={myScorerAway}
+                  locked={locked}
+                  matchGoals={matchGoals}
+                  teamId={hasAL ? lineup.awayTeamId : awayRoster?.fdTeamId}
+                  onSave={(playerId, playerName) => onSaveScorer?.(matchId, 'away', playerId, playerName)}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

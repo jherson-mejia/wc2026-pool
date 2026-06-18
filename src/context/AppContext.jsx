@@ -29,6 +29,7 @@ const INIT = {
   myScorer:      {},   // { matchId_team → pick }
   triviaState:   { questions: [], leaderboard: [], answers: [], impressions: [] },
   liveScores:    {},
+  teamRosters:   {},   // { teamName → { teamName, fdTeamId, players, syncedAt } }
 }
 
 function reducer(state, action) {
@@ -65,6 +66,7 @@ function reducer(state, action) {
     }
     case 'SET_TRIVIA':      return { ...state, triviaState: action.triviaState }
     case 'SET_LIVE_SCORES': return { ...state, liveScores: action.liveScores }
+    case 'SET_ROSTERS':     return { ...state, teamRosters: action.teamRosters }
     case 'PATCH_PICK':    return { ...state, myPicks: { ...state.myPicks, [action.matchId]: action.pick } }
     case 'PATCH_RESULT':  return { ...state, results: { ...state.results, [action.matchId]: action.result } }
     case 'DEL_RESULT': {
@@ -126,6 +128,7 @@ export function AppProvider({ children }) {
         onScorerPicks:      scorerPicks  => dispatch({ type: 'SET_SCORER', scorerPicks }),
         onTriviaState:  triviaState  => dispatch({ type: 'SET_TRIVIA', triviaState }),
         onLiveScores:   liveScores   => dispatch({ type: 'SET_LIVE_SCORES', liveScores }),
+        onTeamRosters:  teamRosters  => dispatch({ type: 'SET_ROSTERS', teamRosters }),
         onPicks: picks => {
           dispatch({ type: 'SET_ALL_PICKS', picks })
           dispatch({ type: 'SET_PICKS', picks: picks[state.user.email] || {} })

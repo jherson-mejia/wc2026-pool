@@ -36,7 +36,7 @@ const STEPS = [
   {
     icon: Zap,
     title: 'Pick a scorer',
-    body: 'When the official lineup is released (~55 min before kickoff), you can pick one goal scorer per team. +1 pt if they score.',
+    body: 'Pick one goal scorer per team any time before kickoff using the full squad. Once the official lineup drops (~55 min before kickoff) the dropdown upgrades to Starting XI / Bench. +1 pt if they score.',
   },
 ]
 
@@ -99,7 +99,7 @@ export default function HowItWorks() {
           <div className="flex gap-2 rounded-lg border border-[#FFD706]/20 bg-[#FFD706]/5 px-3 py-2.5">
             <span className="text-sm">⚽</span>
             <p className="text-xs text-th-subtle leading-relaxed">
-              <span className="font-bold text-[#FFD706]">Scorer picks:</span> Pick one goal scorer per team per match. Opens when the official lineup drops (~55 min before kickoff), locks at kickoff. +1 pt if your player scores.
+              <span className="font-bold text-[#FFD706]">Scorer picks:</span> Pick one goal scorer per team per match using the full squad — available as soon as squads are synced. Upgrades to Starting XI / Bench when the official lineup drops (~55 min before kickoff). Locks at kickoff. +1 pt if your player scores.
             </p>
           </div>
 

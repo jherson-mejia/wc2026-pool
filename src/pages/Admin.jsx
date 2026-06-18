@@ -654,6 +654,58 @@ function SchedulerStatus() {
   )
 }
 
+// ── Roster Sync ───────────────────────────────────────────────
+function RosterSyncCard() {
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(false)
+  const [log, setLog] = useState([])
+
+  async function doSync() {
+    setLoading(true)
+    setLog(['Syncing squad rosters… (~2s per team, may take a few minutes)'])
+    try {
+      const pw = LS.get('adminPw')
+      const res = await fetch('/api/rosters/sync', {
+        method: 'POST',
+        headers: pw ? { 'X-Admin-Password': pw } : {},
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || `Server error ${res.status}`)
+      const lines = [`✓ ${body.synced} team(s) synced`]
+      if (body.skipped > 0) lines.push(`⚠ ${body.skipped} team(s) skipped (unmapped FD names)`)
+      if (body.errors?.length) lines.push(...body.errors.map(e => `✗ ${e.team}: ${e.error}`))
+      lines.push(`Last sync: ${new Date(body.lastSync).toLocaleTimeString()}`)
+      setLog(lines)
+      toast({ title: `Squad rosters synced: ${body.synced} teams ✓` })
+    } catch (e) {
+      setLog([`✗ ${e.message}`])
+      toast({ title: e.message, variant: 'destructive' })
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Users className="h-4 w-4" /> Sync Squad Rosters
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Fetch full WC squad lists from football-data.org. Run before the tournament to enable scorer picks before official lineups drop (~T-55).
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Button onClick={doSync} disabled={loading} size="sm" className="w-full">
+          <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+          {loading ? 'Syncing rosters… (takes a few min)' : 'Sync Rosters'}
+        </Button>
+        {log.length > 0 && (
+          <pre className="text-xs text-th-muted font-mono bg-th-surface-alt rounded-md p-3 whitespace-pre-wrap">{log.join('\n')}</pre>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // ── Lineup Sync ───────────────────────────────────────────────
 function LineupSyncCard() {
   const { koMatches, lineups } = useApp()
@@ -879,6 +931,7 @@ function SyncTab() {
   return (
     <div className="space-y-4">
       <SchedulerStatus />
+      <RosterSyncCard />
       <LineupSyncCard />
       <GoalsSyncCard />
 

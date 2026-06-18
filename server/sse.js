@@ -1,7 +1,7 @@
 import { supabase, fetchAllRows } from './db.js'
 import {
   rowToResult, rowToKo, rowToLineup, rowToMatchGoals, rowToMatchMeta,
-  rowToLiveScore, rowsToPicks, rowsToScorerPicks,
+  rowToLiveScore, rowToRoster, rowsToPicks, rowsToScorerPicks,
 } from './transformers.js'
 
 export const sseClients = new Set()
@@ -49,6 +49,10 @@ export async function broadcastTable(table) {
     const map = {}
     for (const r of data) map[r.match_id] = rowToLiveScore(r)
     broadcast('live_scores', map)
+  } else if (table === 'team_rosters') {
+    const map = {}
+    for (const r of data) map[r.team_name] = rowToRoster(r)
+    broadcast('team_rosters', map)
   }
 }
 
@@ -91,7 +95,7 @@ export async function sseHandler(req, res) {
       { data: parts }, { data: results }, { data: ko }, kos_data,
       { data: lineupRows }, { data: goalsRows }, picks, scorerPickRows, { data: metaRows },
       { data: triviaQRows }, { data: triviaScoreRows }, { data: triviaImpRows },
-      { data: liveScoreRows },
+      { data: liveScoreRows }, { data: rosterRows },
     ] = await Promise.all([
       supabase.from('participants').select('*'),
       supabase.from('results').select('*'),
@@ -106,6 +110,7 @@ export async function sseHandler(req, res) {
       supabase.from('trivia_scores').select('user_id, prompt_id, is_correct'),
       supabase.from('trivia_impressions').select('user_id, prompt_id'),
       supabase.from('live_scores').select('*'),
+      supabase.from('team_rosters').select('*'),
     ])
     const kos = kos_data.data ?? []
 
@@ -123,18 +128,21 @@ export async function sseHandler(req, res) {
     for (const r of metaRows ?? []) metaMap[r.match_id] = rowToMatchMeta(r)
     const liveMap = {}
     for (const r of liveScoreRows ?? []) liveMap[r.match_id] = rowToLiveScore(r)
+    const rosterMap = {}
+    for (const r of rosterRows ?? []) rosterMap[r.team_name] = rowToRoster(r)
 
     const write = (ev, d) => res.write(`event: ${ev}\ndata: ${JSON.stringify(d)}\n\n`)
-    write('participants', parts ?? [])
-    write('results',      resultMap)
-    write('ko_matches',   koMap)
-    write('picks',        rowsToPicks(picks))
-    write('kickoffs',     kickoffMap)
-    write('lineups',      lineupsMap)
-    write('match_goals',  goalsMap)
-    write('scorer_picks', rowsToScorerPicks(scorerPickRows))
-    write('match_meta',   metaMap)
-    write('live_scores',  liveMap)
+    write('participants',  parts ?? [])
+    write('results',       resultMap)
+    write('ko_matches',    koMap)
+    write('picks',         rowsToPicks(picks))
+    write('kickoffs',      kickoffMap)
+    write('lineups',       lineupsMap)
+    write('match_goals',   goalsMap)
+    write('scorer_picks',  rowsToScorerPicks(scorerPickRows))
+    write('match_meta',    metaMap)
+    write('live_scores',   liveMap)
+    write('team_rosters',  rosterMap)
 
     const nameMap = {}
     for (const p of parts ?? []) nameMap[p.user_id] = p.name

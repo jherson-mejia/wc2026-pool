@@ -166,6 +166,16 @@ create table if not exists match_meta (
   ts         bigint
 );
 
+-- ── team_rosters ───────────────────────────────────────────────
+-- Full WC squad per team, synced from football-data.org /teams/{id}.
+-- Enables scorer picks before official lineup drops (~T-55 min).
+create table if not exists team_rosters (
+  team_name  text    primary key,
+  fd_team_id integer not null,
+  players    jsonb   not null default '[]',
+  synced_at  bigint  not null default (extract(epoch from now()) * 1000)::bigint
+);
+
 -- ================================================================
 -- Row Level Security
 -- We use the service_role key server-side (bypasses RLS), so RLS
@@ -186,6 +196,7 @@ alter table match_meta          disable row level security;
 alter table trivia_questions    disable row level security;
 alter table trivia_impressions  disable row level security;
 alter table trivia_scores       disable row level security;
+alter table team_rosters        disable row level security;
 
 -- ================================================================
 -- Realtime

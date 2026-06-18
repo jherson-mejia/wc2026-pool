@@ -47,6 +47,13 @@ export function rowsToPicks(rows) {
   return byEmail
 }
 
+export const rowToRoster = r => ({
+  teamName:  r.team_name,
+  fdTeamId:  r.fd_team_id,
+  players:   r.players ?? [],
+  syncedAt:  r.synced_at,
+})
+
 export function rowsToScorerPicks(rows) {
   const byEmail = {}
   for (const r of rows) {
