@@ -29,7 +29,7 @@ export function calcMatchPoints(pick, result, roundId) {
   }
 
   // Knockout: match the winner pick
-  const actualWinner = result.winner || (rh > ra ? 'home' : 'away')
+  const actualWinner = result.winner || (rh > ra ? 'home' : ra > rh ? 'away' : null)
   const pickWinner   = pick.winner  || (ph > pa ? 'home' : pa > ph ? 'away' : null)
   return pickWinner && pickWinner === actualWinner ? scoring.result : 0
 }

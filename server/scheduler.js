@@ -295,9 +295,9 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
         match_id:  poolMatchId,
         venue:     match.venue    ?? null,
         referee,
-        odds_home: match.odds?.homeWin ?? null,
+        odds_home: swapped ? match.odds?.awayWin ?? null : match.odds?.homeWin ?? null,
         odds_draw: match.odds?.draw    ?? null,
-        odds_away: match.odds?.awayWin ?? null,
+        odds_away: swapped ? match.odds?.homeWin ?? null : match.odds?.awayWin ?? null,
         ts: Date.now(),
       }, { onConflict: 'match_id' })
 
@@ -371,15 +371,22 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
     const newLive       = {}
 
     for (const m of apiMatches) {
-      const home     = normalize(m.homeTeam?.name ?? '')
-      const away     = normalize(m.awayTeam?.name ?? '')
+      let home     = normalize(m.homeTeam?.name ?? '')
+      let away     = normalize(m.awayTeam?.name ?? '')
       const grp      = parseGroup(m.group)
       const matchday = m.matchday ?? null
 
       let matchId = null
+      let swapped = false
       if (m.stage === 'GROUP_STAGE') {
         const gm = findGroupMatch(home, away, grp, matchday)
-        if (gm) matchId = gm.id
+        if (gm) {
+          matchId = gm.id
+          if (gm.home !== home) {
+            ;[home, away] = [away, home]
+            swapped = true
+          }
+        }
       } else {
         matchId = fdIdToMatchId[m.id] ?? null
         // B6: warn when a KO match is missing from fd_match_ids
@@ -394,7 +401,8 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
         continue
       }
 
-      const { home: h, away: a } = readMatchScore(m)
+      let { home: h, away: a } = readMatchScore(m)
+      if (swapped) [h, a] = [a, h]
       const elapsedMin = m.utcDate
         ? Math.floor((Date.now() - new Date(m.utcDate).getTime()) / 60000)
         : 999
@@ -422,11 +430,13 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
       } else if (trulyFinished && h != null && a != null) {
         // Group-stage draws correctly produce winner: null
         const w      = m.score?.winner
-        const winner = m.stage !== 'GROUP_STAGE'
+        let winner = m.stage !== 'GROUP_STAGE'
           ? (w === 'HOME_TEAM' ? 'home' : w === 'AWAY_TEAM' ? 'away' : null)
           : null
-        const hp = m.score?.penalties?.home ?? null
-        const ap = m.score?.penalties?.away ?? null
+        if (swapped && winner === 'home') winner = 'away'
+        else if (swapped && winner === 'away') winner = 'home'
+        const hp = swapped ? m.score?.penalties?.away ?? null : m.score?.penalties?.home ?? null
+        const ap = swapped ? m.score?.penalties?.home ?? null : m.score?.penalties?.away ?? null
         toUpsert.push({ match_id: matchId, home: h, away: a, winner, home_pens: hp, away_pens: ap, ts: Date.now() })
       }
 
@@ -434,8 +444,8 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
       if (Array.isArray(m.goals) && m.goals.length > 0) {
         goalsToUpsert.push({
           match_id:     matchId,
-          home_team_id: m.homeTeam?.id ?? null,
-          away_team_id: m.awayTeam?.id ?? null,
+          home_team_id: swapped ? m.awayTeam?.id ?? null : m.homeTeam?.id ?? null,
+          away_team_id: swapped ? m.homeTeam?.id ?? null : m.awayTeam?.id ?? null,
           goals: m.goals.map(g => ({
             minute:      g.minute,
             scorer_id:   g.scorer?.id   ?? null,
@@ -454,12 +464,13 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
     if (replaceLive) {
       liveScores = newLive
       broadcast('live_scores', liveScores)
-    } else if (Object.keys(newLive).length > 0) {
+    } else {
+      const hadLive = Object.keys(liveScores).length > 0
       liveScores = { ...liveScores, ...newLive }
       for (const mid of Object.keys(liveScores)) {
         if (!newLive[mid]) delete liveScores[mid]
       }
-      broadcast('live_scores', liveScores)
+      if (hadLive || Object.keys(newLive).length > 0) broadcast('live_scores', liveScores)
     }
     persistLiveScores().catch(e => console.warn('[scheduler] live_scores persist failed:', e.message))
 
@@ -666,9 +677,13 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
         const matchday = m.matchday ?? null
 
         let matchId = null
+        let swapped = false
         if (m.stage === 'GROUP_STAGE') {
           const gm = findGroupMatch(home, away, grp, matchday)
-          if (gm) matchId = gm.id
+          if (gm) {
+            matchId = gm.id
+            if (gm.home !== home) swapped = true
+          }
         } else {
           matchId = fdIdToMatchId[m.id] ?? null
         }
@@ -679,9 +694,9 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
         if (m.odds) {
           metaRows.push({
             match_id:  matchId,
-            odds_home: m.odds.homeWin ?? null,
+            odds_home: swapped ? m.odds.awayWin ?? null : m.odds.homeWin ?? null,
             odds_draw: m.odds.draw    ?? null,
-            odds_away: m.odds.awayWin ?? null,
+            odds_away: swapped ? m.odds.homeWin ?? null : m.odds.awayWin ?? null,
             ts: Date.now(),
           })
         }
@@ -830,6 +845,13 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
     if (!fdRow?.fd_id) throw new Error(`No FD ID for ${matchId} — run Sync Schedule first`)
     console.log(`[scheduler] Goals sync for ${matchId} (FD: ${fdRow.fd_id})`)
     const match = await fdFetch(apiKey, `${FD_BASE}/matches/${fdRow.fd_id}`)
+    const fdHomeName = normalize(match.homeTeam?.name ?? '')
+    let poolHome = GROUP_MATCHES.find(g => g.id === matchId)?.home ?? null
+    if (!poolHome) {
+      const { data: km } = await supabase.from('ko_matches').select('home').eq('id', matchId).single()
+      poolHome = km?.home ?? null
+    }
+    const swapped = poolHome != null && fdHomeName !== poolHome
     const goals = (match.goals ?? []).map(g => ({
       minute:      g.minute ?? null,
       scorer_id:   g.scorer?.id   ?? null,
@@ -838,8 +860,8 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
     }))
     const row = {
       match_id:     matchId,
-      home_team_id: match.homeTeam?.id ?? null,
-      away_team_id: match.awayTeam?.id ?? null,
+      home_team_id: swapped ? match.awayTeam?.id ?? null : match.homeTeam?.id ?? null,
+      away_team_id: swapped ? match.homeTeam?.id ?? null : match.awayTeam?.id ?? null,
       goals,
       ts: Date.now(),
     }
