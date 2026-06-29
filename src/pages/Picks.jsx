@@ -589,7 +589,7 @@ export default function Picks() {
 
       <HowItWorks />
 
-      <Tabs defaultValue="group">
+      <Tabs defaultValue="r32">
         <TabsList className="w-full mb-4 overflow-x-auto h-auto gap-1 justify-start">
           <TabsTrigger value="group">Group Stage</TabsTrigger>
           <TabsTrigger value="r32">R32</TabsTrigger>
