@@ -37,7 +37,7 @@ export const KO_ROUNDS = [
   { id: 'r16',   name: 'Round of 16',   count: 8,  scoring: { result: 3,  exact: 7  } },
   { id: 'qf',    name: 'Quarterfinals', count: 4,  scoring: { result: 5,  exact: 10 } },
   { id: 'sf',    name: 'Semifinals',    count: 2,  scoring: { result: 8,  exact: 15 } },
-  { id: 'tp',    name: 'Third Place',   count: 1,  scoring: { result: 5,  exact: 10 } },
+  { id: 'tp',    name: 'Third Place',   count: 1,  scoring: { result: 8,  exact: 15 } },
   { id: 'final', name: 'Final',         count: 1,  scoring: { result: 12, exact: 22 } },
 ]
 

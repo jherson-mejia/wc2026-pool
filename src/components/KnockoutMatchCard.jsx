@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Lock } from 'lucide-react'
 import { Badge } from './ui/badge'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from './ui/select'
@@ -7,7 +7,7 @@ import { getFlag } from '@/data/worldcup'
 import { calcMatchPoints } from '@/lib/scoring'
 import { cn, fmtKickoff } from '@/lib/utils'
 
-export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick = {}, result, onSave, disabled, kickoff = null, lineup, homeRoster, awayRoster, myScorerHome, myScorerAway, matchGoals, onSaveScorer }) {
+export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick = {}, result, liveScore, onSave, disabled, kickoff = null, lineup, homeRoster, awayRoster, myScorerHome, myScorerAway, matchGoals, onSaveScorer }) {
   const homeRef = useRef(null)
   const awayRef = useRef(null)
   const timerRef = useRef(null)
@@ -18,21 +18,37 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
   const locked        = !!result || disabled || kickoffLocked
   const hasPick       = pick.home != null && pick.away != null
   const pts     = result ? calcMatchPoints(pick, result, roundId) : null
+  const hasTiebonus = pts != null && result?.winner && pick?.winner && pick.winner === result.winner
+    && Number(pick.home) === Number(result.home) && Number(pick.away) === Number(result.away)
   const isExact = pts != null && pts >= scoring.exact
   const isCor   = pts != null && pts >= scoring.result
 
+  const [curH, setCurH] = useState(hasPick ? Number(pick.home) : null)
+  const [curA, setCurA] = useState(hasPick ? Number(pick.away) : null)
+  const isTie = curH != null && curA != null
+    ? curH === curA
+    : hasPick && Number(pick.home) === Number(pick.away)
+
   function queue() {
     clearTimeout(timerRef.current)
+    const h = parseInt(homeRef.current?.value)
+    const a = parseInt(awayRef.current?.value)
+    setCurH(isNaN(h) ? null : h)
+    setCurA(isNaN(a) ? null : a)
     timerRef.current = setTimeout(() => {
-      const h = parseInt(homeRef.current?.value)
-      const a = parseInt(awayRef.current?.value)
-      if (!isNaN(h) && !isNaN(a)) onSave?.(matchId, h, a, pick.winner || null)
+      if (!isNaN(h) && !isNaN(a)) {
+        const winner = h === a ? (pick.winner || null) : null
+        onSave?.(matchId, h, a, winner)
+      }
     }, 700)
   }
 
   function onWinnerChange(val) {
-    if (!hasPick) return
-    onSave?.(matchId, pick.home, pick.away, val)
+    const h = curH ?? (hasPick ? Number(pick.home) : null)
+    const a = curA ?? (hasPick ? Number(pick.away) : null)
+    if (h == null || a == null) return
+    clearTimeout(timerRef.current)
+    onSave?.(matchId, h, a, val)
   }
 
   const matchNum = matchId.split('_')[1]
@@ -76,13 +92,15 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
           )}
         </div>
         <div className="shrink-0 ml-2">
-          {result
-            ? <Badge variant="success">✓ {result.home}–{result.away}{result.homePens != null ? ` · pens ${result.homePens}–${result.awayPens}` : ''}</Badge>
-            : kickoffLocked
-              ? <Badge variant="locked">🔒 Locked</Badge>
-              : hasPick
-                ? <Badge variant="pending">Picked</Badge>
-                : <Badge variant="tangerine">Open — pick now!</Badge>}
+          {liveScore
+            ? <Badge variant="live">⚽ {liveScore.homeScore}–{liveScore.awayScore}{liveScore.minute != null ? ` · ${liveScore.injuryTime ? `${liveScore.minute}+${liveScore.injuryTime}` : liveScore.minute}'` : liveScore.status === 'PAUSED' ? ' · HT' : ''}</Badge>
+            : result
+              ? <Badge variant="success">✓ {result.home}–{result.away}{result.homePens != null ? ` · pens ${result.homePens}–${result.awayPens}` : ''}</Badge>
+              : kickoffLocked
+                ? <Badge variant="locked">🔒 Locked</Badge>
+                : hasPick
+                  ? <Badge variant="pending">Picked</Badge>
+                  : <Badge variant="tangerine">Open — pick now!</Badge>}
         </div>
       </div>
 
@@ -136,10 +154,10 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
         </div>
       )}
 
-      {/* Winner selector */}
-      {!locked && (
+      {/* Winner selector — only when score is a tie */}
+      {!locked && isTie && (
         <div className="mt-3 flex items-center gap-2 flex-wrap justify-center">
-          <span className="text-xs text-th-muted">Winner if tied after 90 min:</span>
+          <span className="text-xs text-th-muted">Who advances via penalties?</span>
           <Select value={pick.winner || ''} onValueChange={onWinnerChange}>
             <SelectTrigger className="w-48 h-8 text-xs">
               <SelectValue placeholder="— select —" />
@@ -151,12 +169,17 @@ export default function KnockoutMatchCard({ matchId, roundId, scoring, km, pick 
           </Select>
         </div>
       )}
+      {locked && hasPick && pick.home === pick.away && pick.winner && !result && (
+        <div className="mt-1.5 text-center text-[10px] text-th-muted">
+          Tiebreaker: <span className="font-semibold text-th-text">{getFlag(km[pick.winner])} {km[pick.winner]}</span>
+        </div>
+      )}
 
       {/* Points */}
       {pts != null && (
         <div className="mt-3 flex justify-center">
           {isExact
-            ? <span className="text-xs text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 rounded-full px-3 py-1">🎯 +{pts} pts — exact!</span>
+            ? <span className="text-xs text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 rounded-full px-3 py-1">🎯 +{pts} pts — exact!{hasTiebonus ? ' +2 tiebreaker' : ''}</span>
             : isCor
               ? <span className="text-xs text-[#22c55e] font-semibold">✓ +{pts} pts</span>
               : <span className="text-xs text-th-muted">+0 pts</span>}

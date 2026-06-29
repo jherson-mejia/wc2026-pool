@@ -19,8 +19,11 @@ export function calcMatchPoints(pick, result, roundId) {
   const rh = Number(result.home)
   const ra = Number(result.away)
 
-  // Exact score always beats partial
-  if (ph === rh && pa === ra) return scoring.exact
+  // Exact score always beats partial; +2 bonus for correct tiebreaker winner (penalties)
+  if (ph === rh && pa === ra) {
+    const bonus = result.winner && pick.winner && pick.winner === result.winner ? 2 : 0
+    return scoring.exact + bonus
+  }
 
   if (roundId === 'group') {
     const pickOutcome   = ph > pa ? 'H' : pa > ph ? 'A' : 'D'

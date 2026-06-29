@@ -13,6 +13,7 @@ const badgeVariants = cva(
         pending:     'border-th-border bg-transparent text-th-muted',
         locked:      'border-th-border bg-transparent text-th-muted',
         tangerine:   'border-transparent bg-[#FF8200] text-[#0D0D0B]',
+        live:        'border-[#FF4444]/40 bg-[#FF4444]/15 text-[#FF4444]',
       },
     },
     defaultVariants: { variant: 'default' },

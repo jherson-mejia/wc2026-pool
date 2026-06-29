@@ -669,6 +669,7 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
       const kickoffRows = []
       const fdIdRows    = []
       const metaRows    = []
+      const koMatchRows = []
 
       for (const m of apiMatches) {
         const home     = normalize(m.homeTeam?.name ?? '')
@@ -686,6 +687,10 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
           }
         } else {
           matchId = fdIdToMatchId[m.id] ?? null
+          // Auto-populate ko_matches when both teams are confirmed by the API
+          if (matchId && home && away) {
+            koMatchRows.push({ match_id: matchId, home, away, ts: Date.now() })
+          }
         }
         if (!matchId) continue
 
@@ -703,10 +708,17 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
       }
 
       await Promise.all([
-        kickoffRows.length && supabase.from('kickoffs').upsert(kickoffRows, { onConflict: 'match_id' }),
-        fdIdRows.length    && supabase.from('fd_match_ids').upsert(fdIdRows, { onConflict: 'match_id' }),
-        metaRows.length    && supabase.from('match_meta').upsert(metaRows, { onConflict: 'match_id' }),
+        kickoffRows.length  && supabase.from('kickoffs').upsert(kickoffRows, { onConflict: 'match_id' }),
+        fdIdRows.length     && supabase.from('fd_match_ids').upsert(fdIdRows, { onConflict: 'match_id' }),
+        metaRows.length     && supabase.from('match_meta').upsert(metaRows, { onConflict: 'match_id' }),
+        koMatchRows.length  && supabase.from('ko_matches').upsert(koMatchRows, { onConflict: 'match_id' }),
       ])
+      if (koMatchRows.length) {
+        const { data: allKo } = await supabase.from('ko_matches').select('*')
+        const koMap = {}
+        for (const r of allKo ?? []) koMap[r.match_id] = { matchId: r.match_id, home: r.home, away: r.away, ts: r.ts }
+        broadcast('ko_matches', koMap)
+      }
 
       const { data: allKickoffs } = await supabase.from('kickoffs').select('*')
       const kickoffMap = {}

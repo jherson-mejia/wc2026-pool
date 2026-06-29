@@ -25,13 +25,13 @@ const STEPS = [
   },
   {
     icon: Zap,
-    title: 'Knockout teams revealed',
-    body: 'For Round of 32 onward, teams are revealed match-by-match by the admin once the bracket is set. You can also pick the winner for tiebreakers.',
+    title: 'Knockout rounds',
+    body: 'Teams are revealed match-by-match as the bracket fills. Pick the score — if you pick a draw, a winner dropdown appears so you can pick who advances via extra time or penalties.',
   },
   {
     icon: Trophy,
     title: 'Points add up',
-    body: 'Points are awarded instantly when the admin enters the final score. Higher-stakes rounds are worth more.',
+    body: 'Right result = base points. Exact score = more. Higher rounds are worth more. Scorer picks add +1 each. And if you nail an exact draw AND the correct tiebreaker winner — bonus +2.',
   },
   {
     icon: Zap,
@@ -103,12 +103,16 @@ export default function HowItWorks() {
             </p>
           </div>
 
-          {/* Tiebreaker note */}
+          {/* Knockout scoring note */}
           <div className="flex gap-2 rounded-lg border border-[#FF8200]/20 bg-[#FF8200]/5 px-3 py-2.5">
-            <span className="text-sm">💡</span>
-            <p className="text-xs text-th-subtle leading-relaxed">
-              <span className="font-bold text-[#FF8200]">Ties:</span> In knockout matches that go to extra time or penalties, only the final result counts — not the score after 90 min. Picking the winner correctly still earns points.
-            </p>
+            <span className="text-sm">🏆</span>
+            <div className="text-xs text-th-subtle leading-relaxed space-y-1.5">
+              <p><span className="font-bold text-[#FF8200]">Knockout scoring:</span> Score is based on the final result — including goals in extra time. Penalties don't add to the score.</p>
+              <p>• Pick the right winner → base points</p>
+              <p>• Exact score → full points (includes ET goals)</p>
+              <p>• Exact draw score + correct tiebreaker winner → <span className="font-bold text-[#FFD706]">full points + 2 bonus</span></p>
+              <p className="text-th-muted">Example: you pick 1–1, France wins — result is 1–1 pens, France wins → you get exact score points + 2 extra.</p>
+            </div>
           </div>
         </div>
       )}

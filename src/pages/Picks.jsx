@@ -363,7 +363,7 @@ function MatchDayView({ myPicks, results, kickoffs, onSave, lineups, myScorer, m
 }
 
 // ── Knockout round ─────────────────────────────────────────────
-function KORound({ round, myPicks, results, koMatches, kickoffs, onSave, isAdmin, lineups, myScorer, matchGoals, onSaveScorer, teamRosters }) {
+function KORound({ round, myPicks, results, liveScores, koMatches, kickoffs, onSave, isAdmin, lineups, myScorer, matchGoals, onSaveScorer, teamRosters }) {
   const allTBD = Array.from({ length: round.count }, (_, i) => `${round.id}_${i + 1}`)
     .every(mid => !koMatches[mid]?.home)
 
@@ -395,6 +395,7 @@ function KORound({ round, myPicks, results, koMatches, kickoffs, onSave, isAdmin
             km={koMatches[mid]}
             pick={myPicks[mid]}
             result={results[mid]}
+            liveScore={liveScores?.[mid]}
             kickoff={kickoffs[mid]}
             onSave={onSave}
             disabled={isAdmin}
@@ -623,6 +624,7 @@ export default function Picks() {
               round={round}
               myPicks={myPicks}
               results={effectiveResults}
+              liveScores={liveScores}
               koMatches={koMatches}
               kickoffs={kickoffs}
               onSave={handleSave}
