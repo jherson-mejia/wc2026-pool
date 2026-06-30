@@ -58,8 +58,8 @@ export function calcTotals(picks = {}, results = {}, scorerPicks = {}, matchGoal
     if (p && r) {
       const v = calcMatchPoints(p, r, 'group')
       pts += v
-      if (v >= GROUP_SCORING.result) correct++
-      if (v >= GROUP_SCORING.exact)  exact++
+      if (v >= GROUP_SCORING.exact)       exact++
+      else if (v >= GROUP_SCORING.result) correct++
     }
     for (const team of ['home', 'away']) {
       const sp = scorerPicks[`${m.id}_${team}`]
@@ -80,8 +80,8 @@ export function calcTotals(picks = {}, results = {}, scorerPicks = {}, matchGoal
       if (p && r) {
         const v = calcMatchPoints(p, r, round.id)
         pts += v
-        if (v >= round.scoring.result) correct++
-        if (v >= round.scoring.exact)  exact++
+        if (v >= round.scoring.exact)        exact++
+        else if (v >= round.scoring.result)  correct++
       }
       for (const team of ['home', 'away']) {
         const sp = scorerPicks[`${mid}_${team}`]

@@ -370,7 +370,7 @@ function ParticipantCard({ p, allPicks, myPicks, results, koMatches, user, allSc
               </button>
             </div>
           )}
-          <div className="text-xs text-th-muted mt-0.5"><ObscuredEmail email={p.email} /> · {pickCount} picks · {correct} correct · {exact} exact · {scorers} scorer</div>
+          <div className="text-xs text-th-muted mt-0.5"><ObscuredEmail email={p.email} /> · {pickCount} picks · {correct} result · {exact} exact · {scorers} scorer</div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">

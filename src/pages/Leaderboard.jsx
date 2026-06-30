@@ -41,7 +41,7 @@ function PodiumCard({ p, rank, isMe }) {
           {isMe && <span className="ml-1 text-[#FFD706]">·you</span>}
         </div>
         <div className="text-[10px] sm:text-xs lg:text-xs text-th-muted mt-0.5">
-          {p.correct} winner · {p.exact} exact · {p.scorers} scorer{p.scorers !== 1 ? 's' : ''}
+          {p.correct} result · {p.exact} exact · {p.scorers} scorer{p.scorers !== 1 ? 's' : ''}
         </div>
       </div>
     </div>
@@ -403,7 +403,7 @@ export default function Leaderboard() {
                         <span className="text-[10px] text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 px-1.5 py-0.5 rounded-full leading-none">you</span>
                       )}
                     </div>
-                    <div className="text-xs text-th-muted mt-0.5">{p.correct} winner · {p.exact} exact · {p.scorers} scorer{p.scorers !== 1 ? 's' : ''}</div>
+                    <div className="text-xs text-th-muted mt-0.5">{p.correct} result · {p.exact} exact · {p.scorers} scorer{p.scorers !== 1 ? 's' : ''}</div>
                   </div>
                   <div className="text-lg font-extrabold text-th-text tabular-nums shrink-0">{p.pts}</div>
                 </div>
@@ -441,7 +441,7 @@ export default function Leaderboard() {
                       {p.name}
                       {isMe && <span className="text-[10px] text-[#FFD706] font-bold bg-[#FFD706]/10 border border-[#FFD706]/20 px-1.5 py-0.5 rounded-full leading-none">you</span>}
                     </div>
-                    <div className="text-xs text-th-muted mt-0.5">{p.correct} winner · {p.exact} exact · {p.scorers} scorer{p.scorers !== 1 ? 's' : ''}</div>
+                    <div className="text-xs text-th-muted mt-0.5">{p.correct} result · {p.exact} exact · {p.scorers} scorer{p.scorers !== 1 ? 's' : ''}</div>
                   </div>
                   <div className="text-lg font-extrabold text-th-text tabular-nums">{p.pts}</div>
                 </div>
@@ -473,7 +473,7 @@ export default function Leaderboard() {
                 <span className="text-[11px] font-bold text-th-text">{pts}</span>
               </div>
             ))}
-            <span className="shrink-0 text-[11px] text-th-muted pl-1 whitespace-nowrap">winner / exact</span>
+            <span className="shrink-0 text-[11px] text-th-muted pl-1 whitespace-nowrap">result / exact</span>
           </div>
         </section>
       )}

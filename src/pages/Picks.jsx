@@ -465,7 +465,7 @@ function PicksProgress({ myPicks, results, participants, allPicks, user, allScor
         <div className="rounded-lg bg-th-bg/60 border border-th-border p-2.5 text-center">
           <CheckCircle2 className="h-3 w-3 text-th-muted mx-auto mb-1" />
           <div className="text-xl font-extrabold text-th-text tabular-nums leading-none">{correct}</div>
-          <div className="text-[9px] text-th-muted uppercase tracking-wider mt-1">Winner</div>
+          <div className="text-[9px] text-th-muted uppercase tracking-wider mt-1">Result only</div>
         </div>
         <div className="rounded-lg bg-th-bg/60 border border-th-border p-2.5 text-center">
           <Zap className="h-3 w-3 text-th-muted mx-auto mb-1" />
