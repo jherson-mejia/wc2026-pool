@@ -47,9 +47,23 @@ function findGroupMatch(home, away, group, matchday) {
   )
 }
 
-/** Best available score from an FD match — fullTime first, else count goals by team id. */
+/** Best available score from an FD match.
+ *  Penalty shootouts: use regularTime + extraTime (fullTime adds pen goals — wrong).
+ *  Otherwise: fullTime, then fall back to counting goals array. */
 function readMatchScore(m) {
-  const ft = m.score?.fullTime
+  const score = m.score
+  if (score?.duration === 'PENALTY_SHOOTOUT') {
+    const rt = score.regularTime
+    const et = score.extraTime
+    if (rt?.home != null && rt?.away != null) {
+      return {
+        home: rt.home + (et?.home ?? 0),
+        away: rt.away + (et?.away ?? 0),
+      }
+    }
+  }
+
+  const ft = score?.fullTime
   if (ft?.home != null && ft?.away != null) return { home: ft.home, away: ft.away }
 
   const homeId = m.homeTeam?.id
@@ -365,7 +379,7 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
   }
 
   // ── Shared: map API matches → DB rows + newLive ───────────────
-  function buildMatchPayloads(apiMatches, fdIdToMatchId) {
+  function buildMatchPayloads(apiMatches, fdIdToMatchId, koMatchMap = {}) {
     const toUpsert      = []
     const goalsToUpsert = []
     const newLive       = {}
@@ -389,9 +403,14 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
         }
       } else {
         matchId = fdIdToMatchId[m.id] ?? null
-        // B6: warn when a KO match is missing from fd_match_ids
         if (!matchId) {
           console.warn(`[scheduler] KO match FD#${m.id} (${home} vs ${away}, ${m.stage}) not in fd_match_ids — run Sync Schedule`)
+        } else {
+          const km = koMatchMap[matchId]
+          if (km?.home && km.home !== home) {
+            ;[home, away] = [away, home]
+            swapped = true
+          }
         }
       }
       if (!matchId) {
@@ -562,11 +581,16 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
 
       emptyLiveStreak = 0
 
-      const { data: fdRows } = await supabase.from('fd_match_ids').select('*')
-      const fdIdToMatchId    = {}
+      const [{ data: fdRows }, { data: koRows }] = await Promise.all([
+        supabase.from('fd_match_ids').select('*'),
+        supabase.from('ko_matches').select('match_id, home, away'),
+      ])
+      const fdIdToMatchId = {}
       for (const r of fdRows ?? []) fdIdToMatchId[r.fd_id] = r.match_id
+      const koMatchMap = {}
+      for (const r of koRows ?? []) koMatchMap[r.match_id] = { home: r.home, away: r.away }
 
-      const payloads = buildMatchPayloads(apiMatches, fdIdToMatchId)
+      const payloads = buildMatchPayloads(apiMatches, fdIdToMatchId, koMatchMap)
       await applyAndBroadcast(payloads, false)
       console.log(`[scheduler] Live poll — ${Object.keys(payloads.newLive).length} match(es) live`)
     } catch (err) {
@@ -601,11 +625,16 @@ export function startScheduler({ supabase, broadcast, apiKey }) {
       const json       = await fdFetch(apiKey, `${FD_BASE}/competitions/WC/matches?season=2026&status=FINISHED,IN_PLAY,PAUSED`)
       const apiMatches = json.matches ?? []
 
-      const { data: fdRows } = await supabase.from('fd_match_ids').select('*')
-      const fdIdToMatchId    = {}
+      const [{ data: fdRows }, { data: koRows }] = await Promise.all([
+        supabase.from('fd_match_ids').select('*'),
+        supabase.from('ko_matches').select('match_id, home, away'),
+      ])
+      const fdIdToMatchId = {}
       for (const r of fdRows ?? []) fdIdToMatchId[r.fd_id] = r.match_id
+      const koMatchMap = {}
+      for (const r of koRows ?? []) koMatchMap[r.match_id] = { home: r.home, away: r.away }
 
-      const payloads  = buildMatchPayloads(apiMatches, fdIdToMatchId)
+      const payloads  = buildMatchPayloads(apiMatches, fdIdToMatchId, koMatchMap)
       const postMatch = reason.includes('post-match')
       const wipeLive  = reason === 'scheduled' || reason === 'manual'
       await applyAndBroadcast(payloads, wipeLive)
