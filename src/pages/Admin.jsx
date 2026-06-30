@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useApp } from '@/context/AppContext'
 import { useToast } from '@/components/ui/toast'
-import { GROUPS, GROUP_MATCHES, KO_ROUNDS } from '@/data/worldcup'
+import { GROUPS, GROUP_MATCHES, GROUP_SCORING, KO_ROUNDS, getFlag } from '@/data/worldcup'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,10 +12,28 @@ import { Separator } from '@/components/ui/separator'
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select'
-import { calcTotals } from '@/lib/scoring'
+import { calcTotals, calcMatchPoints, calcScorerPoints } from '@/lib/scoring'
 import { fetchFinishedMatches, mapToPoolResults } from '@/lib/autoSync'
 import { apiBulkImportPicks, LS } from '@/lib/storage'
-import { Download, Upload, Trash2, CheckCircle, Users, RefreshCw, Pencil, ChevronDown, X, Check, Clock, Zap, Trophy } from 'lucide-react'
+import { Download, Upload, Trash2, CheckCircle, Users, RefreshCw, Pencil, ChevronDown, X, Check, Clock, Zap, Trophy, Eye, EyeOff } from 'lucide-react'
+
+function obscureEmail(email) {
+  const [local, domain] = email.split('@')
+  if (!domain) return email
+  return `${local[0]}${'*'.repeat(Math.max(local.length - 1, 3))}@${domain}`
+}
+
+function ObscuredEmail({ email }) {
+  const [revealed, setRevealed] = useState(false)
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="font-mono">{revealed ? email : obscureEmail(email)}</span>
+      <button onClick={() => setRevealed(v => !v)} className="text-th-muted hover:text-th-text transition-colors">
+        {revealed ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+      </button>
+    </span>
+  )
+}
 
 // ── Enter Results ─────────────────────────────────────────────
 function ResultsTab() {
@@ -294,14 +312,15 @@ function PickEditRow({ matchId, label, pick, result, isKO, km, onSave }) {
 }
 
 // ── Single participant card ────────────────────────────────────
-function ParticipantCard({ p, allPicks, myPicks, results, koMatches, user, onDelete, onRename, onSavePick }) {
+function ParticipantCard({ p, allPicks, myPicks, results, koMatches, user, allScorer, matchGoals, lineups, onDelete, onRename, onSavePick }) {
   const [editing, setEditing]   = useState(false)
   const [newName, setNewName]   = useState(p.name)
   const [expanded, setExpanded] = useState(false)
   const { toast } = useToast()
 
   const picks     = p.email === user?.email ? myPicks : (allPicks[p.email] || {})
-  const { pts, correct, exact } = calcTotals(picks, results)
+  const scorer    = (p.email === user?.email ? allScorer[p.email] : allScorer[p.email]) || {}
+  const { pts, correct, exact, scorers } = calcTotals(picks, results, scorer, matchGoals, lineups)
   const pickCount = Object.keys(picks).length
 
   const groupPickedMatches = GROUP_MATCHES.filter(m => picks[m.id] || results[m.id])
@@ -351,7 +370,7 @@ function ParticipantCard({ p, allPicks, myPicks, results, koMatches, user, onDel
               </button>
             </div>
           )}
-          <div className="text-xs text-th-muted mt-0.5">{p.email} · {pickCount} picks · {correct} winner · {exact} exact</div>
+          <div className="text-xs text-th-muted mt-0.5"><ObscuredEmail email={p.email} /> · {pickCount} picks · {correct} correct · {exact} exact · {scorers} scorer</div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -414,22 +433,33 @@ function ParticipantCard({ p, allPicks, myPicks, results, koMatches, user, onDel
 // ── Participants ──────────────────────────────────────────────
 function ParticipantsTab() {
   const { participants, allPicks, myPicks, results, koMatches, user,
+          allScorer, matchGoals, lineups,
           updateParticipant, deleteParticipant, adminSavePick } = useApp()
+  const [search, setSearch] = useState('')
 
   const parts = participants.filter(p => p.email !== '__admin__')
+  const q = search.trim().toLowerCase()
+  const filtered = q ? parts.filter(p => p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q)) : parts
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm text-th-muted">
-        <Users className="h-4 w-4" />
-        <span>{parts.length} participant{parts.length !== 1 ? 's' : ''}</span>
+      <div className="flex items-center gap-2">
+        <Input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search by name or email…"
+          className="h-8 text-sm"
+        />
+        <span className="text-xs text-th-muted shrink-0">{filtered.length}/{parts.length}</span>
       </div>
 
       {parts.length === 0 ? (
         <Card><CardContent className="py-8 text-center text-sm text-th-muted">No participants yet. Share the app!</CardContent></Card>
+      ) : filtered.length === 0 ? (
+        <p className="text-sm text-th-muted text-center py-4">No match for "{search}"</p>
       ) : (
         <div className="space-y-2">
-          {parts.map(p => (
+          {filtered.map(p => (
             <ParticipantCard
               key={p.email}
               p={p}
@@ -438,6 +468,9 @@ function ParticipantsTab() {
               results={results}
               koMatches={koMatches}
               user={user}
+              allScorer={allScorer}
+              matchGoals={matchGoals}
+              lineups={lineups}
               onDelete={deleteParticipant}
               onRename={updateParticipant}
               onSavePick={adminSavePick}
@@ -558,11 +591,12 @@ Round of 32:    2pts winner  ·  5pts exact
 Round of 16:    3pts winner  ·  7pts exact
 Quarterfinals:  5pts winner  ·  10pts exact
 Semifinals:     8pts winner  ·  15pts exact
-Third Place:    5pts winner  ·  10pts exact
+Third Place:    8pts winner  ·  15pts exact
 Final:          12pts winner ·  22pts exact
+Scorer pick:    +1pt if your player scores (per team per match)
 
-Knockout "exact" = correct 90+ET score.
-Winner pick used as tiebreaker if tied after 90min.`
+Knockout "exact" = correct score including ET goals (not pens).
+Picked a draw + correct tiebreaker winner = exact pts + 2 bonus.`
           }</pre>
         </CardContent>
       </Card>
@@ -984,6 +1018,245 @@ function SyncTab() {
   )
 }
 
+// ── Points Validator ─────────────────────────────────────────
+function ValidateTab() {
+  const { participants, allPicks, results, koMatches, allScorer, matchGoals, lineups } = useApp()
+  const [selectedEmail, setSelectedEmail] = useState('')
+  const [roundFilter, setRoundFilter]     = useState('all')
+  const [search, setSearch]               = useState('')
+
+  const parts = participants.filter(p => p.email !== '__admin__')
+
+  const picks       = allPicks[selectedEmail]  || {}
+  const scorerPicks = allScorer[selectedEmail] || {}
+
+  const settledMatches = useMemo(() => [
+    ...GROUP_MATCHES
+      .filter(m => results[m.id])
+      .map(m => ({ matchId: m.id, roundId: 'group', roundName: `Group ${m.group}`, home: m.home, away: m.away })),
+    ...KO_ROUNDS.flatMap(round =>
+      Array.from({ length: round.count }, (_, i) => {
+        const mid = `${round.id}_${i + 1}`
+        const km  = koMatches[mid]
+        if (!results[mid] || !km?.home) return null
+        return { matchId: mid, roundId: round.id, roundName: round.name, home: km.home, away: km.away }
+      }).filter(Boolean)
+    ),
+  ], [results, koMatches])
+
+  const { pts: totalPtsCalc, scorers: totalScorerPts } = useMemo(
+    () => calcTotals(picks, results, scorerPicks, matchGoals, lineups),
+    [selectedEmail, picks, results, scorerPicks, matchGoals, lineups],
+  )
+  const totalMatchPts = totalPtsCalc - totalScorerPts
+
+  const filtered = roundFilter === 'all'
+    ? settledMatches
+    : settledMatches.filter(m => m.roundId === roundFilter)
+
+  if (!selectedEmail) {
+    const q = search.trim().toLowerCase()
+    const visibleParts = q ? parts.filter(p => p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q)) : parts
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-th-muted">Select a participant to audit their score breakdown match by match.</p>
+        <div className="flex items-center gap-2">
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by name or email…"
+            className="h-8 text-sm"
+          />
+          <span className="text-xs text-th-muted shrink-0">{visibleParts.length}/{parts.length}</span>
+        </div>
+        {visibleParts.length === 0 ? (
+          <p className="text-sm text-th-muted text-center py-4">No match for "{search}"</p>
+        ) : (
+          <div className="space-y-2">
+            {visibleParts.map(p => {
+              const ptots = calcTotals(allPicks[p.email] || {}, results, allScorer[p.email] || {}, matchGoals, lineups)
+              return (
+                <button key={p.email} onClick={() => setSelectedEmail(p.email)}
+                  className="w-full text-left px-4 py-3 rounded-lg border border-th-border bg-th-bg/40 hover:border-[#FFD706]/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold text-sm text-th-text">{p.name}</div>
+                      <div className="text-xs text-th-muted"><ObscuredEmail email={p.email} /></div>
+                    </div>
+                    <span className="font-bold text-[#FFD706]">{ptots.pts} pts</span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const participant = parts.find(p => p.email === selectedEmail)
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <button onClick={() => { setSelectedEmail(''); setRoundFilter('all') }}
+          className="text-xs text-th-muted hover:text-th-text transition-colors">← back</button>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-th-text truncate">{participant?.name}</div>
+          <div className="text-xs text-th-muted"><ObscuredEmail email={selectedEmail} /></div>
+        </div>
+        <div className="text-right shrink-0">
+          <div className="text-xl font-extrabold text-[#FFD706]">{totalPtsCalc} pts</div>
+          <div className="text-[10px] text-th-muted">{totalMatchPts} match · {totalScorerPts} scorer</div>
+        </div>
+      </div>
+
+      {/* Round filter */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        {['all', 'group', ...KO_ROUNDS.map(r => r.id)].map(id => {
+          const label = id === 'all' ? 'All' : id === 'group' ? 'Group' : (KO_ROUNDS.find(r => r.id === id)?.name ?? id)
+          return (
+            <button key={id} onClick={() => setRoundFilter(id)}
+              className={`shrink-0 px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
+                roundFilter === id ? 'bg-[#FFD706] text-[#0D0D0B]' : 'bg-th-border text-th-muted hover:text-th-text'
+              }`}>
+              {label}
+            </button>
+          )
+        })}
+      </div>
+
+      {filtered.length === 0 && (
+        <p className="text-sm text-th-muted py-4 text-center">No settled matches in this round yet.</p>
+      )}
+
+      <div className="space-y-2">
+        {filtered.map(({ matchId, roundId, roundName, home, away }) => {
+          const pick    = picks[matchId]
+          const result  = results[matchId]
+          const scoring = roundId === 'group' ? GROUP_SCORING : KO_ROUNDS.find(r => r.id === roundId)?.scoring
+          const hasPick = pick?.home != null && pick?.away != null
+
+          const mPts = hasPick && result ? calcMatchPoints(pick, result, roundId) : null
+          const ph = hasPick ? Number(pick.home) : null
+          const pa = hasPick ? Number(pick.away) : null
+          const rh = Number(result.home)
+          const ra = Number(result.away)
+
+          // Build explanation
+          let explanation = '', expColor = 'text-th-muted'
+          if (!hasPick) {
+            explanation = 'No pick'
+          } else if (mPts >= scoring.exact) {
+            const tiebonus = result.winner && pick.winner && pick.winner === result.winner
+            explanation = tiebonus ? 'Exact score + tiebreaker bonus (+2)' : 'Exact score'
+            expColor = 'text-[#FFD706]'
+          } else if (mPts > 0) {
+            explanation = roundId === 'group' ? 'Correct result' : 'Correct winner'
+            expColor = 'text-[#22c55e]'
+          } else {
+            if (roundId === 'group') {
+              const po = ph > pa ? 'Win' : pa > ph ? 'Loss' : 'Draw'
+              const ro = rh > ra ? 'Win' : ra > rh ? 'Loss' : 'Draw'
+              explanation = `Wrong — picked ${po}, was ${ro}`
+            } else {
+              const pw = pick.winner || (ph > pa ? 'home' : pa > ph ? 'away' : null)
+              const aw = result.winner || (rh > ra ? 'home' : ra > rh ? 'away' : null)
+              const pwName = pw === 'home' ? home : pw === 'away' ? away : '?'
+              const awName = aw === 'home' ? home : aw === 'away' ? away : '?'
+              explanation = pw !== aw ? `Wrong winner — picked ${pwName}, won ${awName}` : 'Wrong score, same winner'
+            }
+          }
+
+          const scorerRows = ['home', 'away'].map(team => {
+            const sp  = scorerPicks[`${matchId}_${team}`]
+            const mg  = matchGoals[matchId]
+            const pts = sp && mg ? calcScorerPoints(sp, mg, lineups[matchId]) : 0
+            return { team, teamName: team === 'home' ? home : away, sp, pts }
+          })
+
+          const rowScorerPts = scorerRows.reduce((s, r) => s + r.pts, 0)
+          const rowTotal = (mPts ?? 0) + rowScorerPts
+
+          return (
+            <div key={matchId} className="rounded-lg border border-th-border overflow-hidden">
+              {/* Row header */}
+              <div className="flex items-center justify-between px-3 py-1.5 bg-th-border/30">
+                <span className="text-[10px] font-bold text-th-muted uppercase tracking-wider">
+                  {roundName} · {matchId}
+                </span>
+                <span className={`text-xs font-bold ${rowTotal > 0 ? 'text-[#FFD706]' : 'text-th-muted'}`}>
+                  {rowTotal > 0 ? `+${rowTotal} pts` : '0 pts'}
+                </span>
+              </div>
+
+              <div className="px-3 py-2.5 space-y-2.5">
+                {/* Teams + result */}
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                  <div className="text-right">
+                    <div className="text-xs font-semibold text-th-text leading-tight">{getFlag(home)} {home}</div>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="text-sm font-extrabold text-th-text tabular-nums">{rh}–{ra}</div>
+                    {result.homePens != null && (
+                      <div className="text-[9px] text-th-muted">pens {result.homePens}–{result.awayPens}</div>
+                    )}
+                    {result.winner && (
+                      <div className="text-[9px] text-th-muted">
+                        {getFlag(result.winner === 'home' ? home : away)} {result.winner === 'home' ? home : away} advance
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-th-text leading-tight">{getFlag(away)} {away}</div>
+                  </div>
+                </div>
+
+                {/* Pick row */}
+                <div className="flex items-center gap-2 text-xs border-t border-th-border/40 pt-2">
+                  <span className="text-[10px] text-th-muted shrink-0 w-8">Pick:</span>
+                  {hasPick ? (
+                    <>
+                      <span className="font-mono font-bold text-th-text tabular-nums">{getFlag(home)} {ph}–{pa} {getFlag(away)}</span>
+                      {pick.winner && (
+                        <span className="text-[10px] text-th-muted shrink-0">
+                          · {getFlag(pick.winner === 'home' ? home : away)} {pick.winner === 'home' ? home : away} via pens
+                        </span>
+                      )}
+                      <span className={`ml-auto text-[10px] font-semibold shrink-0 ${expColor}`}>{explanation}</span>
+                      <span className={`text-xs font-bold shrink-0 w-8 text-right ${mPts > 0 ? (mPts >= scoring.exact ? 'text-[#FFD706]' : 'text-[#22c55e]') : 'text-th-muted'}`}>
+                        {mPts != null ? (mPts > 0 ? `+${mPts}` : '0') : '—'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-[10px] text-th-muted italic">No pick — 0 pts</span>
+                  )}
+                </div>
+
+                {/* Scorer picks */}
+                {scorerRows.some(r => r.sp) && (
+                  <div className="space-y-1 border-t border-th-border/40 pt-2">
+                    {scorerRows.map(({ team, teamName, sp, pts }) => sp ? (
+                      <div key={team} className="flex items-center gap-2 text-[10px]">
+                        <span className="text-th-muted shrink-0">{getFlag(teamName)} {teamName}:</span>
+                        <span className="text-th-text font-medium truncate">{sp.playerName}</span>
+                        <span className={`ml-auto font-semibold shrink-0 ${pts > 0 ? 'text-[#22c55e]' : 'text-th-muted'}`}>
+                          {pts > 0 ? '✓ Scored +1' : '✗ No goal'}
+                        </span>
+                      </div>
+                    ) : null)}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── Main Admin page ───────────────────────────────────────────
 export default function Admin() {
   return (
@@ -998,12 +1271,14 @@ export default function Admin() {
           <TabsTrigger value="sync">Auto-Sync</TabsTrigger>
           <TabsTrigger value="participants">Participants</TabsTrigger>
           <TabsTrigger value="backup">Backup</TabsTrigger>
+          <TabsTrigger value="validate">Validate</TabsTrigger>
         </TabsList>
         <TabsContent value="results"><ResultsTab /></TabsContent>
         <TabsContent value="knockout"><KnockoutTab /></TabsContent>
         <TabsContent value="sync"><SyncTab /></TabsContent>
         <TabsContent value="participants"><ParticipantsTab /></TabsContent>
         <TabsContent value="backup"><BackupTab /></TabsContent>
+        <TabsContent value="validate"><ValidateTab /></TabsContent>
       </Tabs>
     </div>
   )
